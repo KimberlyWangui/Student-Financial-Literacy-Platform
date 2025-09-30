@@ -6,7 +6,7 @@
 - [Overview](#overview)
 - [Features](#features)
 - [Tech Stack](#tech-stack)
-- [Installation & Setup](#installation--setup)
+- [Installation and Setup](#Installation-and-Seup)
   - [Clone the Repository](#1-clone-the-repository)
   - [Backend (Laravel API) Setup](#2-backend-laravel-api-setup)
   - [Frontend (React) Setup](#3-frontend-react-setup)
