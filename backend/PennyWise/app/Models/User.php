@@ -25,6 +25,7 @@ class User extends Authenticatable
         'email',
         'role',
         'password',
+        'two_factor_enabled'
     ];
 
     /**
@@ -47,11 +48,17 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'two_factor_enabled' => 'boolean'
         ];
     }
 
     public function sendPasswordResetNotification($token)
     {
         $this->notify(new ResetPasswordNotification($token));
+    }
+
+    public function otps()
+    {
+        return $this->hasMany(UserOtp::class);
     }
 }
