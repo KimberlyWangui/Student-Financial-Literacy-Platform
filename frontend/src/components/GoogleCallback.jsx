@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import authService from '../services/authService';
+import { redirectToDashboard } from '../utils/redirectHelper';
 import './GoogleCallback.css';
 
 function GoogleCallback() {
@@ -29,8 +30,8 @@ function GoogleCallback() {
           
           // Redirect to dashboard
           setTimeout(() => {
-            navigate('/dashboard', {
-              state: { message: 'Welcome back!' }
+            redirectToDashboard(navigate, response.user.role, {
+              message: 'Welcome back!'
             });
           }, 1000);
         } else {

@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import authService from '../services/authService';
+import { redirectToDashboard } from '../utils/redirectHelper';
 import './OTPVerification.css';
 
 function OTPVerification() {
@@ -30,12 +31,12 @@ function OTPVerification() {
     }
   }, [resendTimer]);
 
-  // Redirect if no email provided
+  // Redirect if no email or userId provided
   useEffect(() => {
-    if (!email) {
+    if (!email || !userId) {
       navigate('/signin');
     }
-  }, [email, navigate]);
+  }, [email, userId, navigate]);
 
   const handleChange = (index, value) => {
     // Only allow numbers
@@ -95,41 +96,38 @@ function OTPVerification() {
     setSuccessMessage('');
 
     try {
-      // Call verification API
-      // Replace this with your actual API call
-      console.log('Verifying OTP:', { email, otp: otpCode });
+      // Call verification API with user_id
+      const response = await authService.verifyOTP(userId, otpCode);
       
-      /*
-      const response = await api.post('/verify-otp', {
-        email: email,
-        otp: otpCode
-      });
+      console.log('OTP verification response:', response);
       
-      if (response.data.success) {
-        setSuccessMessage('OTP verified successfully!');
-        setTimeout(() => {
-          navigate('/signin', { 
-            state: { message: 'Email verified! Please sign in.' } 
-          });
-        }, 1500);
+      // Store token after successful OTP verification
+      if (response.token) {
+        localStorage.setItem('auth_token', response.token);
       }
-      */
-
-      // Temporary simulation
+      
+      if (response.user) {
+        localStorage.setItem('user', JSON.stringify(response.user));
+      }
+      
+      // Clear temporary user_id
+      localStorage.removeItem('temp_user_id');
+      
+      setSuccessMessage('OTP verified successfully! Redirecting...');
+      
       setTimeout(() => {
-        setSuccessMessage('OTP verified successfully!');
-        setTimeout(() => {
-          navigate('/signin', { 
-            state: { message: 'Email verified! Please sign in.' } 
-          });
-        }, 1500);
-      }, 1000);
+        if (response.user?.role) {
+          redirectToDashboard(navigate, response.user.role, { message: 'Welcome back!' });
+        } else {
+          navigate('/signin', { state: { message: 'Session expired. Please log in again.' } });
+        }
+      }, 1500);
       
     } catch (error) {
       console.error('OTP verification error:', error);
       
-      if (error.response?.data?.message) {
-        setError(error.response.data.message);
+      if (error.message) {
+        setError(error.message);
       } else {
         setError('Invalid OTP. Please try again.');
       }
@@ -150,31 +148,18 @@ function OTPVerification() {
     setSuccessMessage('');
 
     try {
-      // Call resend OTP API
-      console.log('Resending OTP to:', email);
+      // Call resend OTP API with user_id
+      const response = await authService.resendOTP(userId);
       
-      /*
-      const response = await api.post('/resend-otp', {
-        email: email
-      });
+      console.log('Resend OTP response:', response);
       
-      if (response.data.success) {
-        setSuccessMessage('OTP resent successfully!');
-        setResendTimer(60);
-        setCanResend(false);
-      }
-      */
-
-      // Temporary simulation
-      setTimeout(() => {
-        setSuccessMessage('OTP resent successfully! Check your email.');
-        setResendTimer(60);
-        setCanResend(false);
-      }, 1000);
+      setSuccessMessage(response.message || 'OTP resent successfully! Check your email.');
+      setResendTimer(60);
+      setCanResend(false);
       
     } catch (error) {
       console.error('Resend OTP error:', error);
-      setError('Failed to resend OTP. Please try again.');
+      setError(error.message || 'Failed to resend OTP. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -199,7 +184,7 @@ function OTPVerification() {
         <div className="otp-header">
           <h1 className="title">Verify Your Email</h1>
           <p className="subtitle">
-            We've sent a 6-digit verification code to<br />
+            {messageFromState || "We've sent a 6-digit verification code to"}<br />
             <strong>{email}</strong>
           </p>
         </div>

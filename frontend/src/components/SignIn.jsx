@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import authService from '../services/authService';
+import { redirectToDashboard } from '../utils/redirectHelper';
 import './SignIn.css';
 
 function SignIn() {
@@ -75,10 +76,7 @@ function SignIn() {
         
         // Check if two-factor authentication is required
         if (response.two_factor_required) {
-          // Store user_id temporarily for OTP verification
           localStorage.setItem('temp_user_id', response.user_id);
-          
-          // Redirect to OTP verification page
           navigate('/verify-otp', {
             state: {
               email: formData.email,
@@ -86,11 +84,17 @@ function SignIn() {
               message: response.message || 'OTP sent to your email. Please verify to continue.'
             }
           });
-        } else {
-          // If no 2FA required, redirect to dashboard
-          // (This case might not happen based on your API, but good to handle)
-          navigate('/dashboard');
+        } else if (response.token && response.user) {
+          // Save user session
+          localStorage.setItem('auth_token', response.token);
+          localStorage.setItem('user', JSON.stringify(response.user));
+
+          // Redirect based on role
+          redirectToDashboard(navigate, response.user.role, {
+            message: 'Welcome back!'
+          });
         }
+
         
       } catch (error) {
         console.error('Login error:', error);

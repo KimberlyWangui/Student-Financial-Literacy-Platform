@@ -3,6 +3,9 @@ import SignUp from './components/SignUp'
 import SignIn from './components/SignIn'
 import OTPVerification from './components/OTPVerification'
 import GoogleCallback from './components/GoogleCallback'
+import ProtectedRoute from './components/ProtectedRoute'
+import StudentDashboard from './components/StudentDashboard'
+import AdminDashboard from './components/AdminDashboard'
 import './App.css'
 
 function App() {
@@ -13,17 +16,31 @@ function App() {
           {/* Default route - redirect to signin */}
           <Route path="/" element={<Navigate to="/signin" replace />} />
           
-          {/* Sign In route */}
+          {/* Public routes */}
           <Route path="/signin" element={<SignIn />} />
-          
-          {/* Sign Up route */}
           <Route path="/signup" element={<SignUp />} />
-          
-          {/* OTP Verification route */}
           <Route path="/verify-otp" element={<OTPVerification />} />
-          
-          {/* Google OAuth Callback route */}
           <Route path="/auth/google/callback" element={<GoogleCallback />} />
+          
+          {/* Protected routes - Student Dashboard */}
+          <Route 
+            path="/student/dashboard" 
+            element={
+              <ProtectedRoute allowedRoles={['student']}>
+                <StudentDashboard />
+              </ProtectedRoute>
+            } 
+          />
+          
+          {/* Protected routes - Admin Dashboard */}
+          <Route 
+            path="/admin/dashboard" 
+            element={
+              <ProtectedRoute allowedRoles={['admin']}>
+                <AdminDashboard />
+              </ProtectedRoute>
+            } 
+          />
           
           {/* Catch all route - redirect to signin if route doesn't exist */}
           <Route path="*" element={<Navigate to="/signin" replace />} />
