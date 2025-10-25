@@ -21,6 +21,7 @@ function App() {
           <Route path="/signup" element={<SignUp />} />
           <Route path="/verify-otp" element={<OTPVerification />} />
           <Route path="/auth/google/callback" element={<GoogleCallback />} />
+          <Route path="/auth/google/success" element={<GoogleCallback />} />  {/* ADD THIS LINE */}
           
           {/* Protected routes - Student Dashboard */}
           <Route 

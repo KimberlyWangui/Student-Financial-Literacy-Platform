@@ -142,29 +142,6 @@ const authService = {
       }
       throw new Error('Failed to initialize Google login.');
     }
-  },
-
-  // Google OAuth - Handle callback
-  handleGoogleCallback: async (callbackUrl) => {
-    try {
-      const response = await api.get(callbackUrl);
-      
-      // Store token and user data
-      if (response.data.token) {
-        localStorage.setItem('auth_token', response.data.token);
-      }
-      
-      if (response.data.user) {
-        localStorage.setItem('user', JSON.stringify(response.data.user));
-      }
-      
-      return response.data;
-    } catch (error) {
-      if (error.response && error.response.data) {
-        throw error.response.data;
-      }
-      throw new Error('Google authentication failed.');
-    }
   }
 };
 
