@@ -118,11 +118,27 @@ function SignIn() {
     }
   };
 
-  const handleGoogleSignIn = () => {
-    console.log('Sign in with Google');
-    alert('Google sign-in - connect to backend OAuth');
+  const handleGoogleSignIn = async () => {
+    setIsLoading(true);
+    setErrors({});
     
-    // Later implement OAuth with Laravel
+    try {
+      // Get Google OAuth redirect URL from backend
+      const response = await authService.getGoogleAuthUrl();
+      
+      console.log('Google auth response:', response);
+      
+      // Redirect to Google OAuth page
+      if (response.redirect_url) {
+        window.location.href = response.redirect_url;
+      } else {
+        setErrors({ general: 'Failed to initialize Google login.' });
+      }
+    } catch (error) {
+      console.error('Google sign-in error:', error);
+      setErrors({ general: error.message || 'Failed to initialize Google login.' });
+      setIsLoading(false);
+    }
   };
 
   const handleForgotPassword = () => {
