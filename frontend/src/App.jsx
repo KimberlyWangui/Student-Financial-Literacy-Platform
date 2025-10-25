@@ -6,6 +6,8 @@ import GoogleCallback from './components/GoogleCallback'
 import ProtectedRoute from './components/ProtectedRoute'
 import StudentDashboard from './components/StudentDashboard'
 import AdminDashboard from './components/AdminDashboard'
+import ForgotPassword from './components/ForgotPassword';
+import ResetPassword from './components/ResetPassword';
 import './App.css'
 
 function App() {
@@ -42,6 +44,9 @@ function App() {
               </ProtectedRoute>
             } 
           />
+
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
           
           {/* Catch all route - redirect to signin if route doesn't exist */}
           <Route path="*" element={<Navigate to="/signin" replace />} />
