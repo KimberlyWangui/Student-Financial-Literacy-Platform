@@ -1,0 +1,311 @@
+/* Container for the entire page */
+.signin-container {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #f5f5f5;
+  padding: 20px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+}
+
+/* White card containing the form */
+.signin-card {
+  background: white;
+  padding: 48px 40px;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  width: 100%;
+  max-width: 400px;
+}
+
+/* Logo section */
+.logo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 32px;
+  color: #1a8ccc;
+}
+
+.logo-icon {
+  width: 32px;
+  height: 32px;
+  margin-right: 8px;
+}
+
+.logo-text {
+  font-size: 24px;
+  font-weight: 600;
+  color: #1a8ccc;
+}
+
+/* Title */
+.title {
+  font-size: 24px;
+  font-weight: 600;
+  text-align: center;
+  margin-bottom: 32px;
+  color: #1a1a1a;
+}
+
+/* Form styling */
+.signin-form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* Form group (label + input + error) */
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.form-group label {
+  font-size: 14px;
+  font-weight: 500;
+  color: #333;
+}
+
+/* Input with icon wrapper */
+.input-with-icon {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.input-icon {
+  position: absolute;
+  left: 12px;
+  width: 20px;
+  height: 20px;
+  color: #6b7280;
+  pointer-events: none;
+}
+
+.input-with-icon input {
+  width: 100%;
+  padding: 10px 12px 10px 40px;
+  font-size: 14px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  outline: none;
+  transition: all 0.2s;
+  box-sizing: border-box;
+}
+
+.input-with-icon input:focus {
+  border-color: #1a8ccc;
+  box-shadow: 0 0 0 3px rgba(26, 140, 204, 0.1);
+}
+
+.input-with-icon input.error {
+  border-color: #ef4444;
+}
+
+.input-with-icon input.error:focus {
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
+}
+
+/* Toggle password button */
+.toggle-password {
+  position: absolute;
+  right: 12px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #6b7280;
+  transition: color 0.2s;
+}
+
+.toggle-password:hover {
+  color: #374151;
+}
+
+.toggle-password svg {
+  width: 20px;
+  height: 20px;
+}
+
+/* Error message */
+.error-message {
+  font-size: 12px;
+  color: #ef4444;
+  margin-top: 4px;
+}
+
+/* General error message */
+.general-error {
+  padding: 12px;
+  background-color: #fee2e2;
+  border: 1px solid #fca5a5;
+  border-radius: 6px;
+  color: #991b1b;
+  font-size: 14px;
+  margin-bottom: 20px;
+  text-align: center;
+}
+
+/* Info message */
+.info-message {
+  padding: 12px;
+  background-color: #dbeafe;
+  border: 1px solid #93c5fd;
+  border-radius: 6px;
+  color: #1e40af;
+  font-size: 14px;
+  margin-bottom: 20px;
+  text-align: center;
+}
+
+/* Request OTP button */
+.otp-button {
+  width: 100%;
+  padding: 12px;
+  font-size: 16px;
+  font-weight: 500;
+  color: white;
+  background-color: #1a8ccc;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.otp-button:hover {
+  background-color: #1577b3;
+}
+
+.otp-button:active {
+  background-color: #136399;
+}
+
+/* Forgot password link */
+.forgot-password-link {
+  background: none;
+  border: none;
+  color: #1a8ccc;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  text-align: left;
+  padding: 0;
+  margin-top: -8px;
+}
+
+.forgot-password-link:hover {
+  text-decoration: underline;
+}
+
+/* Sign In button */
+.signin-button {
+  width: 100%;
+  padding: 12px;
+  font-size: 16px;
+  font-weight: 500;
+  color: white;
+  background-color: #1a8ccc;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.signin-button:hover {
+  background-color: #1577b3;
+}
+
+.signin-button:active {
+  background-color: #136399;
+}
+
+/* Divider */
+.divider {
+  display: flex;
+  align-items: center;
+  text-align: center;
+  margin: 24px 0;
+  color: #9ca3af;
+  font-size: 14px;
+}
+
+.divider::before,
+.divider::after {
+  content: '';
+  flex: 1;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.divider span {
+  padding: 0 16px;
+}
+
+/* Google sign-in button */
+.google-button {
+  width: 100%;
+  padding: 12px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #333;
+  background-color: white;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+
+.google-button:hover {
+  background-color: #f9fafb;
+  border-color: #9ca3af;
+}
+
+.google-icon {
+  width: 20px;
+  height: 20px;
+}
+
+/* Sign up link section */
+.signup-link {
+  text-align: center;
+  margin-top: 24px;
+  font-size: 14px;
+  color: #666;
+}
+
+.link-button {
+  background: none;
+  border: none;
+  color: #1a8ccc;
+  cursor: pointer;
+  padding: 0;
+  font-size: 14px;
+  font-weight: 500;
+  text-decoration: underline;
+}
+
+.link-button:hover {
+  color: #1577b3;
+}
+
+/* Responsive design for mobile */
+@media (max-width: 480px) {
+  .signin-card {
+    padding: 32px 24px;
+  }
+  
+  .title {
+    font-size: 20px;
+  }
+}
