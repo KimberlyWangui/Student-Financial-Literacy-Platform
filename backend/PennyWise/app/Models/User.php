@@ -61,4 +61,12 @@ class User extends Authenticatable
     {
         return $this->hasMany(UserOtp::class);
     }
+
+    /**
+     * Get the student profile associated with the user.
+     */
+    public function studentProfile()
+    {
+        return $this->hasOne(StudentProfile::class, 'student_id');
+    }
 }
