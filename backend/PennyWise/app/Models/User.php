@@ -69,4 +69,12 @@ class User extends Authenticatable
     {
         return $this->hasOne(StudentProfile::class, 'student_id');
     }
+
+    /**
+     * Get the financial data entries for the user.
+     */
+    public function financialData()
+    {
+        return $this->hasMany(FinancialData::class, 'student_id');
+    }
 }

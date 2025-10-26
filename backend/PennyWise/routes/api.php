@@ -7,77 +7,103 @@ use App\Http\Controllers\PasswordResetController;
 use App\Http\Controllers\GoogleAuthController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\StudentProfileController;
+use App\Http\Controllers\FinancialDataController;
 
 // ============================================
 // PUBLIC ROUTES (No Authentication Required)
 // ============================================
 
-Route::post('/register', [AuthController::class, 'register']);
-Route::post('/login', [AuthController::class, 'login']);
-Route::post('/forgot-password', [PasswordResetController::class, 'forgotPassword']);
-Route::post('/reset-password', [PasswordResetController::class, 'reset']);
-Route::post('/verify-otp', [AuthController::class, 'verifyOtp']);
-Route::post('/resend-otp', [AuthController::class, 'resendOtp']);
+Route::post('/register',           [AuthController::class,         'register']);
+Route::post('/login',              [AuthController::class,         'login']);
+Route::post('/forgot-password',    [PasswordResetController::class,'forgotPassword']);
+Route::post('/reset-password',     [PasswordResetController::class,'reset']);
+Route::post('/verify-otp',         [AuthController::class,         'verifyOtp']);
+Route::post('/resend-otp',         [AuthController::class,         'resendOtp']);
 
 // Google OAuth routes
-Route::get('/auth/google', [GoogleAuthController::class, 'redirectToGoogle']);
-Route::get('/auth/google/callback', [GoogleAuthController::class, 'handleGoogleCallback']);
+Route::get('/auth/google',         [GoogleAuthController::class,   'redirectToGoogle']);
+Route::get('/auth/google/callback',[GoogleAuthController::class,   'handleGoogleCallback']);
 
 // ============================================
 // PROTECTED ROUTES (Authentication Required)
 // ============================================
 
 Route::middleware('auth:sanctum')->group(function () {
-    
+
     // Get authenticated user
     Route::get('/user', function (Request $request) {
         return $request->user();
     });
-    
+
     // Authentication routes
-    Route::post('/logout', [AuthController::class, 'logout']);
-    Route::post('/enable-2fa', [AuthController::class, 'enable2FA']);
-    Route::post('/disable-2fa', [AuthController::class, 'disable2FA']);
+    Route::post('/logout',          [AuthController::class,         'logout']);
+    Route::post('/enable-2fa',      [AuthController::class,         'enable2FA']);
+    Route::post('/disable-2fa',     [AuthController::class,         'disable2FA']);
 
     // ============================================
     // USER MANAGEMENT ROUTES
     // ============================================
-    
+
     // Routes accessible by both students and admins
     Route::middleware('student.or.admin')->group(function () {
-        Route::get('users/{id}', [UserController::class, 'show']);
-        Route::put('users/{id}', [UserController::class, 'update']);
-        Route::patch('users/{id}', [UserController::class, 'update']);
+        Route::get(   'users/{id}', [UserController::class,         'show']);
+        Route::put(   'users/{id}', [UserController::class,         'update']);
+        Route::patch( 'users/{id}', [UserController::class,         'update']);
     });
 
     // Routes accessible by admins only
     Route::middleware('admin')->group(function () {
-        Route::get('users', [UserController::class, 'index']);
-        Route::post('users', [UserController::class, 'store']);
-        Route::delete('users/{id}', [UserController::class, 'destroy']);
+        Route::get(   'users',      [UserController::class,         'index']);
+        Route::post(  'users',      [UserController::class,         'store']);
+        Route::delete('users/{id}', [UserController::class,         'destroy']);
     });
 
     // ============================================
     // STUDENT PROFILE ROUTES
     // ============================================
-    
+
     // Get my profile (student only) - Must come before {id} route
     Route::get('student-profiles/me', [StudentProfileController::class, 'myProfile']);
-    
+
     // Admin can view all profiles
     Route::middleware('admin')->group(function () {
         Route::get('student-profiles', [StudentProfileController::class, 'index']);
     });
-    
+
     // Routes accessible by both students and admins
     Route::middleware('student.or.admin')->group(function () {
         // Create profile
-        Route::post('student-profiles', [StudentProfileController::class, 'store']);
-        
+        Route::post(  'student-profiles',      [StudentProfileController::class, 'store']);
+
         // View, update, and delete specific profile
-        Route::get('student-profiles/{id}', [StudentProfileController::class, 'show']);
-        Route::put('student-profiles/{id}', [StudentProfileController::class, 'update']);
-        Route::patch('student-profiles/{id}', [StudentProfileController::class, 'update']);
+        Route::get(   'student-profiles/{id}', [StudentProfileController::class, 'show']);
+        Route::put(   'student-profiles/{id}', [StudentProfileController::class, 'update']);
+        Route::patch( 'student-profiles/{id}', [StudentProfileController::class, 'update']);
         Route::delete('student-profiles/{id}', [StudentProfileController::class, 'destroy']);
     });
+
+    // ============================================
+    // FINANCIAL DATA ROUTES
+    // ============================================
+
+    // Get metadata (entry types and categories)
+    Route::get('financial-data/metadata', [FinancialDataController::class, 'metadata']);
+
+    // Get my financial summary (student only)
+    Route::get('financial-data/my-summary', [FinancialDataController::class, 'mySummary']);
+
+    // Routes accessible by both students and admins
+    Route::middleware('student.or.admin')->group(function () {
+        // List entries (filtered by role in controller)
+        Route::get(   'financial-data',      [FinancialDataController::class, 'index']);
+
+        // View, update, and delete specific entry
+        Route::get(   'financial-data/{id}', [FinancialDataController::class, 'show']);
+        Route::put(   'financial-data/{id}', [FinancialDataController::class, 'update']);
+        Route::patch( 'financial-data/{id}', [FinancialDataController::class, 'update']);
+        Route::delete('financial-data/{id}', [FinancialDataController::class, 'destroy']);
+    });
+
+    // Create entry (student only)
+    Route::post('financial-data', [FinancialDataController::class, 'store']);
 });
