@@ -80,16 +80,16 @@
 
 .input-icon {
   position: absolute;
-  left: 12px;
-  width: 20px;
-  height: 20px;
+  left: 14px;  /* Changed from 12px to 14px */
+  width: 18px;  /* Reduced from 20px to 18px */
+  height: 18px;
   color: #6b7280;
   pointer-events: none;
 }
 
 .input-with-icon input {
   width: 100%;
-  padding: 10px 12px 10px 40px;
+  padding: 10px 12px 10px 42px;  /* Adjusted padding */
   font-size: 14px;
   border: 1px solid #d1d5db;
   border-radius: 6px;
@@ -97,6 +97,7 @@
   transition: all 0.2s;
   box-sizing: border-box;
 }
+
 
 .input-with-icon input:focus {
   border-color: #1a8ccc;
