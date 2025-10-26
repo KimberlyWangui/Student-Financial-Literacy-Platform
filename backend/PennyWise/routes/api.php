@@ -5,6 +5,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\PasswordResetController;
 use App\Http\Controllers\GoogleAuthController;
+use App\Http\Controllers\UserController;
 
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
@@ -25,5 +26,17 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::post('/enable-2fa', [AuthController::class, 'enable2FA']);
     Route::post('/disable-2fa', [AuthController::class, 'disable2FA']);
+
+    Route::middleware('student.or.admin')->group(function () {
+        Route::get('users/{id}', [UserController::class, 'show']);
+        Route::put('users/{id}', [UserController::class, 'update']);
+        Route::patch('users/{id}', [UserController::class, 'update']);
+    });
+
+    Route::middleware('admin')->group(function () {
+        Route::get('users', [UserController::class, 'index']);
+        Route::post('users', [UserController::class, 'store']);
+        Route::delete('users/{id}', [UserController::class, 'destroy']);
+    });
 });
 
