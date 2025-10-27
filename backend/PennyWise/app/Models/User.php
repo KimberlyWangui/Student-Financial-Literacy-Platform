@@ -101,4 +101,12 @@ class User extends Authenticatable
     {
         return $this->hasMany(Recommendation::class, 'student_id');
     }
+
+    /**
+     * Get the simulations for the user.
+     */
+    public function simulations()
+    {
+        return $this->hasMany(Simulation::class, 'student_id');
+    }
 }

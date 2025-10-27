@@ -11,6 +11,7 @@ use App\Http\Controllers\FinancialDataController;
 use App\Http\Controllers\GoalController;
 use App\Http\Controllers\BudgetController;
 use App\Http\Controllers\RecommendationController;
+use App\Http\Controllers\SimulationController;
 
 // ============================================
 // PUBLIC ROUTES (No Authentication Required)
@@ -199,5 +200,34 @@ Route::middleware('auth:sanctum')->group(function () {
         
         // Delete recommendation
         Route::delete('recommendations/{id}', [RecommendationController::class, 'destroy']);
+    });
+
+    // ============================================
+    // SIMULATIONS ROUTES
+    // ============================================
+    
+    // Preview simulation without saving (available to all) - Must come before {id} route
+    Route::post('simulations/preview', [SimulationController::class, 'preview']);
+    
+    // Get my simulation statistics (student only) - Must come before {id} route
+    Route::get('simulations/my-statistics', [SimulationController::class, 'myStatistics']);
+    
+    // Create simulation (student only)
+    Route::post('simulations', [SimulationController::class, 'store']);
+    
+    // Update simulation (student only)
+    Route::put('simulations/{id}', [SimulationController::class, 'update']);
+    Route::patch('simulations/{id}', [SimulationController::class, 'update']);
+    
+    // Delete simulation (student can delete own, admin can delete any)
+    Route::delete('simulations/{id}', [SimulationController::class, 'destroy']);
+    
+    // Routes accessible by both students and admins (READ operations)
+    Route::middleware('student.or.admin')->group(function () {
+        // List simulations (filtered by role in controller)
+        Route::get('simulations', [SimulationController::class, 'index']);
+        
+        // View specific simulation
+        Route::get('simulations/{id}', [SimulationController::class, 'show']);
     });
 });
