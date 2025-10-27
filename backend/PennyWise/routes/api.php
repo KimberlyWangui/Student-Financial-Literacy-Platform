@@ -9,6 +9,7 @@ use App\Http\Controllers\UserController;
 use App\Http\Controllers\StudentProfileController;
 use App\Http\Controllers\FinancialDataController;
 use App\Http\Controllers\GoalController;
+use App\Http\Controllers\BudgetController;
 
 // ============================================
 // PUBLIC ROUTES (No Authentication Required)
@@ -134,4 +135,33 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('goals/{id}', [GoalController::class, 'update']);
     Route::patch('goals/{id}', [GoalController::class, 'update']);
     Route::delete('goals/{id}', [GoalController::class, 'destroy']);
+
+    // ============================================
+    // BUDGETS ROUTES
+    // ============================================
+    
+    // Get budget categories - available to all
+    Route::get('budgets/categories', [BudgetController::class, 'categories']);
+    
+    // Get my budget summary (student only) - Must come before {id} route
+    Route::get('budgets/my-summary', [BudgetController::class, 'mySummary']);
+    
+    // Create budget (student only)
+    Route::post('budgets', [BudgetController::class, 'store']);
+    
+    // Update budget (student only)
+    Route::put('budgets/{id}', [BudgetController::class, 'update']);
+    Route::patch('budgets/{id}', [BudgetController::class, 'update']);
+    
+    // Delete budget (student only)
+    Route::delete('budgets/{id}', [BudgetController::class, 'destroy']);
+    
+    // Routes accessible by both students and admins (READ operations)
+    Route::middleware('student.or.admin')->group(function () {
+        // List budgets (filtered by role in controller)
+        Route::get('budgets', [BudgetController::class, 'index']);
+        
+        // View specific budget
+        Route::get('budgets/{id}', [BudgetController::class, 'show']);
+    });
 });

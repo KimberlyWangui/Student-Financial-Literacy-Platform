@@ -85,4 +85,12 @@ class User extends Authenticatable
     {
         return $this->hasMany(Goal::class, 'student_id');
     }
+
+    /** 
+     * Get the budgets for the user.
+     */
+    public function budgets()
+    {
+        return $this->hasMany(Budget::class, 'student_id');
+    }
 }
