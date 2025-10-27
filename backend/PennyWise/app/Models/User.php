@@ -93,4 +93,12 @@ class User extends Authenticatable
     {
         return $this->hasMany(Budget::class, 'student_id');
     }
+
+    /**
+     * Get the recommendations for the user.
+     */
+    public function recommendations()
+    {
+        return $this->hasMany(Recommendation::class, 'student_id');
+    }
 }

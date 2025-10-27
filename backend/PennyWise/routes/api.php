@@ -10,6 +10,7 @@ use App\Http\Controllers\StudentProfileController;
 use App\Http\Controllers\FinancialDataController;
 use App\Http\Controllers\GoalController;
 use App\Http\Controllers\BudgetController;
+use App\Http\Controllers\RecommendationController;
 
 // ============================================
 // PUBLIC ROUTES (No Authentication Required)
@@ -163,5 +164,40 @@ Route::middleware('auth:sanctum')->group(function () {
         
         // View specific budget
         Route::get('budgets/{id}', [BudgetController::class, 'show']);
+    });
+
+    // ============================================
+    // RECOMMENDATIONS ROUTES
+    // ============================================
+    
+    // Get metadata (categories, statuses, source types) - available to all
+    Route::get('recommendations/metadata', [RecommendationController::class, 'metadata']);
+    
+    // Get recommendation statistics - Must come before {id} route
+    Route::get('recommendations/statistics', [RecommendationController::class, 'statistics']);
+    
+    // Update recommendation status (student only) - Must come before {id} route
+    Route::patch('recommendations/{id}/status', [RecommendationController::class, 'updateStatus']);
+    
+    // Routes accessible by both students and admins
+    Route::middleware('student.or.admin')->group(function () {
+        // List recommendations (filtered by role in controller)
+        Route::get('recommendations', [RecommendationController::class, 'index']);
+        
+        // View specific recommendation
+        Route::get('recommendations/{id}', [RecommendationController::class, 'show']);
+        
+        // Update recommendation (different permissions in controller)
+        Route::put('recommendations/{id}', [RecommendationController::class, 'update']);
+        Route::patch('recommendations/{id}', [RecommendationController::class, 'update']);
+    });
+    
+    // Admin-only routes
+    Route::middleware('admin')->group(function () {
+        // Create recommendation
+        Route::post('recommendations', [RecommendationController::class, 'store']);
+        
+        // Delete recommendation
+        Route::delete('recommendations/{id}', [RecommendationController::class, 'destroy']);
     });
 });
