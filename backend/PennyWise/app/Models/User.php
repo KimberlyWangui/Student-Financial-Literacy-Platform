@@ -77,4 +77,12 @@ class User extends Authenticatable
     {
         return $this->hasMany(FinancialData::class, 'student_id');
     }
+
+    /**
+     * Get the goals for the user.
+     */
+    public function goals()
+    {
+        return $this->hasMany(Goal::class, 'student_id');
+    }
 }

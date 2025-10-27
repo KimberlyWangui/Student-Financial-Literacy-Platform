@@ -8,6 +8,7 @@ use App\Http\Controllers\GoogleAuthController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\StudentProfileController;
 use App\Http\Controllers\FinancialDataController;
+use App\Http\Controllers\GoalController;
 
 // ============================================
 // PUBLIC ROUTES (No Authentication Required)
@@ -106,4 +107,31 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Create entry (student only)
     Route::post('financial-data', [FinancialDataController::class, 'store']);
+
+     // ============================================
+    // GOALS ROUTES
+    // ============================================
+    
+    // Get my goals summary (student only) - Must come before {id} route
+    Route::get('goals/my-summary', [GoalController::class, 'mySummary']);
+    
+    // Add progress to a goal (student only) - Must come before general routes
+    Route::post('goals/{id}/add-progress', [GoalController::class, 'addProgress']);
+    
+    // Create goal (student only)
+    Route::post('goals', [GoalController::class, 'store']);
+    
+    // Routes accessible by both students and admins
+    Route::middleware('student.or.admin')->group(function () {
+        // List goals (filtered by role in controller)
+        Route::get('goals', [GoalController::class, 'index']);
+        
+        // View specific goal
+        Route::get('goals/{id}', [GoalController::class, 'show']);
+    });
+    
+    // Update and delete (student only, checked in controller)
+    Route::put('goals/{id}', [GoalController::class, 'update']);
+    Route::patch('goals/{id}', [GoalController::class, 'update']);
+    Route::delete('goals/{id}', [GoalController::class, 'destroy']);
 });
