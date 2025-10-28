@@ -2,7 +2,6 @@
 
 namespace App\Models;
 
-// use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -10,16 +9,14 @@ use Laravel\Sanctum\HasApiTokens;
 use Illuminate\Auth\Passwords\CanResetPassword;
 use App\Notifications\ResetPasswordNotification;
 
+/**
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Badge> $badges
+ * @method \Illuminate\Database\Eloquent\Relations\BelongsToMany badges()
+ */
 class User extends Authenticatable
 {
-    /** @use HasFactory<\Database\Factories\UserFactory> */
     use HasFactory, Notifiable, HasApiTokens, CanResetPassword;
 
-    /**
-     * The attributes that are mass assignable.
-     *
-     * @var list<string>
-     */
     protected $fillable = [
         'name',
         'email',
@@ -28,21 +25,11 @@ class User extends Authenticatable
         'two_factor_enabled'
     ];
 
-    /**
-     * The attributes that should be hidden for serialization.
-     *
-     * @var list<string>
-     */
     protected $hidden = [
         'password',
         'remember_token',
     ];
 
-    /**
-     * Get the attributes that should be cast.
-     *
-     * @return array<string, string>
-     */
     protected function casts(): array
     {
         return [
@@ -62,51 +49,74 @@ class User extends Authenticatable
         return $this->hasMany(UserOtp::class);
     }
 
-    /**
-     * Get the student profile associated with the user.
-     */
     public function studentProfile()
     {
         return $this->hasOne(StudentProfile::class, 'student_id');
     }
 
-    /**
-     * Get the financial data entries for the user.
-     */
     public function financialData()
     {
         return $this->hasMany(FinancialData::class, 'student_id');
     }
 
-    /**
-     * Get the goals for the user.
-     */
     public function goals()
     {
         return $this->hasMany(Goal::class, 'student_id');
     }
 
-    /** 
-     * Get the budgets for the user.
-     */
     public function budgets()
     {
         return $this->hasMany(Budget::class, 'student_id');
     }
 
-    /**
-     * Get the recommendations for the user.
-     */
     public function recommendations()
     {
         return $this->hasMany(Recommendation::class, 'student_id');
     }
 
-    /**
-     * Get the simulations for the user.
-     */
     public function simulations()
     {
         return $this->hasMany(Simulation::class, 'student_id');
+    }
+
+    /**
+     * Get the badges earned by the user.
+     */
+    public function badges()
+    {
+        return $this->belongsToMany(
+            Badge::class,
+            'student_badges',
+            'student_id',
+            'badge_id'
+        )->withPivot('earned_at');
+    }
+
+    /**
+     * Check if user has earned a specific badge.
+     */
+    public function hasBadge($badgeId): bool
+    {
+        return $this->badges()->wherePivot('badge_id', $badgeId)->exists();
+    }
+
+    /**
+     * Award a badge to the user.
+     */
+    public function awardBadge($badgeId)
+    {
+        if (!$this->hasBadge($badgeId)) {
+            $this->badges()->attach($badgeId, ['earned_at' => now()]);
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * Remove a badge from the user.
+     */
+    public function removeBadge($badgeId)
+    {
+        return $this->badges()->detach($badgeId);
     }
 }

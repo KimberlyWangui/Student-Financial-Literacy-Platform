@@ -12,6 +12,8 @@ use App\Http\Controllers\GoalController;
 use App\Http\Controllers\BudgetController;
 use App\Http\Controllers\RecommendationController;
 use App\Http\Controllers\SimulationController;
+use App\Http\Controllers\BadgeController;
+use App\Http\Controllers\StudentBadgeController;
 
 // ============================================
 // PUBLIC ROUTES (No Authentication Required)
@@ -229,5 +231,56 @@ Route::middleware('auth:sanctum')->group(function () {
         
         // View specific simulation
         Route::get('simulations/{id}', [SimulationController::class, 'show']);
+    });
+
+    // ============================================
+    // BADGES ROUTES
+    // ============================================
+    
+    // Get badge statistics (admin only) - Must come before {id} route
+    Route::middleware('admin')->group(function () {
+        Route::get('badges/statistics', [BadgeController::class, 'statistics']);
+    });
+    
+    // Routes accessible by both students and admins (READ operations)
+    Route::middleware('student.or.admin')->group(function () {
+        // List all badges
+        Route::get('badges', [BadgeController::class, 'index']);
+        
+        // View specific badge
+        Route::get('badges/{id}', [BadgeController::class, 'show']);
+    });
+    
+    // Admin-only routes (CREATE, UPDATE, DELETE)
+    Route::middleware('admin')->group(function () {
+        Route::post('badges', [BadgeController::class, 'store']);
+        Route::post('badges/{id}', [BadgeController::class, 'update']); // POST for multipart/form-data
+        Route::put('badges/{id}', [BadgeController::class, 'update']);
+        Route::patch('badges/{id}', [BadgeController::class, 'update']);
+        Route::delete('badges/{id}', [BadgeController::class, 'destroy']);
+    });
+
+    // ============================================
+    // STUDENT BADGES ROUTES
+    // ============================================
+    
+    // Get my badges (student only) - Must come before {studentId} route
+    Route::get('student-badges/me', [StudentBadgeController::class, 'myBadges']);
+    
+    // Get badges for a specific student
+    Route::middleware('student.or.admin')->group(function () {
+        Route::get('student-badges/student/{studentId}', [StudentBadgeController::class, 'getStudentBadges']);
+    });
+    
+    // Admin-only routes
+    Route::middleware('admin')->group(function () {
+        // Award badge to student
+        Route::post('student-badges/award', [StudentBadgeController::class, 'awardBadge']);
+        
+        // Remove badge from student
+        Route::post('student-badges/remove', [StudentBadgeController::class, 'removeBadge']);
+        
+        // Get all students who earned a specific badge
+        Route::get('student-badges/badge/{badgeId}/students', [StudentBadgeController::class, 'getBadgeStudents']);
     });
 });
