@@ -14,6 +14,7 @@ use App\Http\Controllers\RecommendationController;
 use App\Http\Controllers\SimulationController;
 use App\Http\Controllers\BadgeController;
 use App\Http\Controllers\StudentBadgeController;
+use App\Http\Controllers\AIController;
 
 // ============================================
 // PUBLIC ROUTES (No Authentication Required)
@@ -202,6 +203,24 @@ Route::middleware('auth:sanctum')->group(function () {
         
         // Delete recommendation
         Route::delete('recommendations/{id}', [RecommendationController::class, 'destroy']);
+    });
+
+    // ============================================
+    // AI PREDICTION & RECOMMENDATIONS ROUTES
+    // ============================================
+    // Admin-only routes for AI operations
+    Route::middleware('admin')->group(function () {
+        // Health check for Flask API
+        Route::get('ai/health', [AIController::class, 'checkApiHealth']);
+        
+        // Generate predictions for ALL students (manual trigger)
+        Route::post('ai/predict/batch', [AIController::class, 'generatePredictionsForAllStudents']);
+        
+        // Generate prediction for a single student (manual trigger)
+        Route::post('ai/predict/student/{studentId}', [AIController::class, 'generatePredictionForStudent']);
+        
+        // Preview aggregated data for debugging
+        Route::get('ai/preview/student/{studentId}', [AIController::class, 'previewStudentData']);
     });
 
     // ============================================
