@@ -32,6 +32,8 @@ class FinancialData extends Model
         'student_id',
         'entry_type',
         'category',
+        'payment_method',
+        'description',
         'amount',
         'entry_date',
     ];

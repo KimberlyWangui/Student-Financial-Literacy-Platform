@@ -33,6 +33,8 @@ class Budget extends Model
         'student_id',
         'category',
         'amount',
+        'actual_spent',
+        'status',
         'start_date',
         'end_date',
     ];

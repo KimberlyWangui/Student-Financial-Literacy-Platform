@@ -32,6 +32,8 @@ class Goal extends Model
         'student_id',
         'goal_name',
         'target_amount',
+        'goal_type',
+        'status',
         'current_amount',
         'deadline',
     ];
