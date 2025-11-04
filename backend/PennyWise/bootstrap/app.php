@@ -16,6 +16,10 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->api(prepend: [
             \App\Http\Middleware\Cors::class,
         ]);
+        $middleware->alias([
+            'admin' => \App\Http\Middleware\IsAdmin::class,
+            'student.or.admin' => \App\Http\Middleware\IsStudentOrAdmin::class,
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
         //

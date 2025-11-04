@@ -1,4 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import LandingPage from './components/LandingPage';
 import SignUp from './components/SignUp'
 import SignIn from './components/SignIn'
 import OTPVerification from './components/OTPVerification'
@@ -16,7 +17,7 @@ function App() {
       <div className="App">
         <Routes>
           {/* Default route - redirect to signin */}
-          <Route path="/" element={<Navigate to="/signin" replace />} />
+          <Route path="/" element={<LandingPage />} />
           
           {/* Public routes */}
           <Route path="/signin" element={<SignIn />} />
@@ -49,7 +50,7 @@ function App() {
         <Route path="/reset-password" element={<ResetPassword />} />
           
           {/* Catch all route - redirect to signin if route doesn't exist */}
-          <Route path="*" element={<Navigate to="/signin" replace />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </div>
     </BrowserRouter>

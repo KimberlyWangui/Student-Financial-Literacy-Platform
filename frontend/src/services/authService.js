@@ -52,22 +52,33 @@ const authService = {
   },
 
   // Logout user
-  logout: async () => {
-    try {
+  // Logout user
+logout: async () => {
+  try {
+    const token = localStorage.getItem('auth_token');
+    
+    // Only call API if we have a token
+    if (token) {
       await api.post('/logout');
-      
-      // Clear local storage
-      localStorage.removeItem('auth_token');
-      localStorage.removeItem('user');
-      
-      return true;
-    } catch (error) {
-      // Even if API call fails, clear local storage
-      localStorage.removeItem('auth_token');
-      localStorage.removeItem('user');
-      throw error;
     }
-  },
+    
+    // Clear local storage regardless of API response
+    localStorage.removeItem('auth_token');
+    localStorage.removeItem('user');
+    localStorage.removeItem('temp_user_id'); // Also clear temp user id
+    
+    return { message: 'Logged out successfully' };
+  } catch (error) {
+    // Even if API call fails, clear local storage
+    localStorage.removeItem('auth_token');
+    localStorage.removeItem('user');
+    localStorage.removeItem('temp_user_id');
+    
+    console.error('Logout error:', error);
+    // Don't throw error, still return success since we cleared local storage
+    return { message: 'Logged out successfully' };
+  }
+},
 
   // Get current user
   getCurrentUser: () => {
