@@ -46,6 +46,7 @@ class Budget extends Model
      */
     protected $casts = [
         'amount' => 'decimal:2',
+        'actual_spent' => 'decimal:2',
         'start_date' => 'date',
         'end_date' => 'date',
         'created_at' => 'datetime',
@@ -72,12 +73,17 @@ class Budget extends Model
     }
 
     /**
-     * Calculate total spent in this budget period.
+     * Calculate total spent in this budget period from financial data.
      *
      * @return float
      */
     public function getTotalSpentAttribute(): float
     {
+        // Return actual_spent if it exists, otherwise calculate from financial data
+        if ($this->actual_spent > 0) {
+            return (float) $this->actual_spent;
+        }
+
         $spent = FinancialData::where('student_id', $this->student_id)
             ->where('entry_type', 'expense')
             ->where('category', $this->category)
@@ -94,7 +100,7 @@ class Budget extends Model
      */
     public function getRemainingBudgetAttribute(): float
     {
-        $remaining = $this->amount - $this->total_spent;
+        $remaining = $this->amount - $this->actual_spent;
         return max($remaining, 0);
     }
 
@@ -109,7 +115,7 @@ class Budget extends Model
             return 0;
         }
 
-        $percentage = ($this->total_spent / $this->amount) * 100;
+        $percentage = ($this->actual_spent / $this->amount) * 100;
         return round($percentage, 2);
     }
 
@@ -120,7 +126,7 @@ class Budget extends Model
      */
     public function getIsExceededAttribute(): bool
     {
-        return $this->total_spent > $this->amount;
+        return $this->actual_spent > $this->amount;
     }
 
     /**
@@ -159,6 +165,45 @@ class Budget extends Model
     }
 
     /**
+     * Automatically update status based on actual_spent and date.
+     */
+    public function updateStatus(): void
+    {
+        $now = Carbon::now();
+
+        if ($now->isAfter($this->end_date)) {
+            // Budget period has ended
+            if ($this->actual_spent > $this->amount) {
+                $this->status = 'over';
+            } elseif ($this->actual_spent < $this->amount) {
+                $this->status = 'under';
+            } else {
+                $this->status = 'completed';
+            }
+        } else {
+            // Budget period is ongoing
+            $this->status = 'active';
+        }
+
+        $this->save();
+    }
+
+    /**
+     * Sync actual_spent from financial data.
+     */
+    public function syncActualSpent(): void
+    {
+        $spent = FinancialData::where('student_id', $this->student_id)
+            ->where('entry_type', 'expense')
+            ->where('category', $this->category)
+            ->whereBetween('entry_date', [$this->start_date, $this->end_date])
+            ->sum('amount');
+
+        $this->actual_spent = $spent;
+        $this->save();
+    }
+
+    /**
      * Scope a query to only include budgets for a specific student.
      */
     public function scopeForStudent($query, $studentId)
@@ -193,6 +238,14 @@ class Budget extends Model
     }
 
     /**
+     * Scope a query to filter by status.
+     */
+    public function scopeByStatus($query, $status)
+    {
+        return $query->where('status', $status);
+    }
+
+    /**
      * Get the available budget categories.
      *
      * @return array
@@ -209,6 +262,21 @@ class Budget extends Model
             'clothing',
             'healthcare',
             'other expense'
+        ];
+    }
+
+    /**
+     * Get the available budget statuses.
+     *
+     * @return array
+     */
+    public static function getStatuses(): array
+    {
+        return [
+            'active',
+            'completed',
+            'over',
+            'under'
         ];
     }
 

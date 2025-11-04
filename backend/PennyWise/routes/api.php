@@ -118,16 +118,29 @@ Route::middleware('auth:sanctum')->group(function () {
     // GOALS ROUTES
     // ============================================
     
+    // Get goal metadata (types and statuses) - available to all
+    Route::get('goals/metadata', [GoalController::class, 'metadata']);
+
     // Get my goals summary (student only) - Must come before {id} route
     Route::get('goals/my-summary', [GoalController::class, 'mySummary']);
-    
-    // Add progress to a goal (student only) - Must come before general routes
+
+    // Add progress to goal (student only) - Must come before general {id} routes
     Route::post('goals/{id}/add-progress', [GoalController::class, 'addProgress']);
-    
+
+    // Update goal status automatically (student only) - Must come before general {id} routes
+    Route::post('goals/{id}/update-status', [GoalController::class, 'updateStatus']);
+
     // Create goal (student only)
     Route::post('goals', [GoalController::class, 'store']);
-    
-    // Routes accessible by both students and admins
+
+    // Update goal (student only)
+    Route::put('goals/{id}', [GoalController::class, 'update']);
+    Route::patch('goals/{id}', [GoalController::class, 'update']);
+
+    // Delete goal (student only)
+    Route::delete('goals/{id}', [GoalController::class, 'destroy']);
+
+    // Routes accessible by both students and admins (READ operations)
     Route::middleware('student.or.admin')->group(function () {
         // List goals (filtered by role in controller)
         Route::get('goals', [GoalController::class, 'index']);
@@ -135,32 +148,36 @@ Route::middleware('auth:sanctum')->group(function () {
         // View specific goal
         Route::get('goals/{id}', [GoalController::class, 'show']);
     });
-    
-    // Update and delete (student only, checked in controller)
-    Route::put('goals/{id}', [GoalController::class, 'update']);
-    Route::patch('goals/{id}', [GoalController::class, 'update']);
-    Route::delete('goals/{id}', [GoalController::class, 'destroy']);
 
     // ============================================
     // BUDGETS ROUTES
     // ============================================
     
-    // Get budget categories - available to all
+    // Get budget metadata (categories and statuses) - available to all
+    Route::get('budgets/metadata', [BudgetController::class, 'metadata']);
+
+    // Get budget categories - available to all (DEPRECATED - use metadata instead)
     Route::get('budgets/categories', [BudgetController::class, 'categories']);
-    
+
     // Get my budget summary (student only) - Must come before {id} route
     Route::get('budgets/my-summary', [BudgetController::class, 'mySummary']);
-    
+
+    // Sync actual spent from financial data (student only) - Must come before {id} route
+    Route::post('budgets/{id}/sync-actual-spent', [BudgetController::class, 'syncActualSpent']);
+
+    // Update budget status automatically (student only) - Must come before general {id} routes
+    Route::post('budgets/{id}/update-status', [BudgetController::class, 'updateStatus']);
+
     // Create budget (student only)
     Route::post('budgets', [BudgetController::class, 'store']);
-    
+
     // Update budget (student only)
     Route::put('budgets/{id}', [BudgetController::class, 'update']);
     Route::patch('budgets/{id}', [BudgetController::class, 'update']);
-    
+
     // Delete budget (student only)
     Route::delete('budgets/{id}', [BudgetController::class, 'destroy']);
-    
+
     // Routes accessible by both students and admins (READ operations)
     Route::middleware('student.or.admin')->group(function () {
         // List budgets (filtered by role in controller)

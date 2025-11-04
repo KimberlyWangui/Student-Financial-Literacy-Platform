@@ -100,6 +100,23 @@ class FinancialData extends Model
     }
 
     /**
+     * Get the available payment methods.
+     *
+     * @return array
+     */
+    public static function getPaymentMethods(): array
+    {
+        return [
+            'cash',
+            'card',
+            'M-Pesa',
+            'bank_transfer',
+            'E-Wallet',
+            'other'
+        ];
+    }
+
+    /**
      * Scope a query to only include entries for a specific student.
      */
     public function scopeForStudent($query, $studentId)
@@ -121,5 +138,13 @@ class FinancialData extends Model
     public function scopeDateRange($query, $startDate, $endDate)
     {
         return $query->whereBetween('entry_date', [$startDate, $endDate]);
+    }
+
+    /**
+     * Scope a query to filter by payment method.
+     */
+    public function scopeByPaymentMethod($query, $paymentMethod)
+    {
+        return $query->where('payment_method', $paymentMethod);
     }
 }

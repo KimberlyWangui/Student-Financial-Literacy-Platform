@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Goal;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\Rule;
 
 class GoalController extends Controller
 {
@@ -27,11 +28,19 @@ class GoalController extends Controller
 
         // Optional filters
         if ($request->has('status')) {
-            if ($request->status === 'active') {
+            if (in_array($request->status, Goal::getStatuses())) {
+                $query->byStatus($request->status);
+            }
+            // Legacy support
+            elseif ($request->status === 'active') {
                 $query->active();
             } elseif ($request->status === 'completed') {
                 $query->completed();
             }
+        }
+
+        if ($request->has('goal_type')) {
+            $query->byType($request->goal_type);
         }
 
         // Sort by deadline ascending (closest deadline first)
@@ -66,6 +75,8 @@ class GoalController extends Controller
             'target_amount' => 'required|numeric|min:0.01|max:9999999.99',
             'current_amount' => 'nullable|numeric|min:0|max:9999999.99',
             'deadline' => 'required|date|after:today',
+            'goal_type' => ['nullable', Rule::in(Goal::getGoalTypes())],
+            'status' => ['nullable', Rule::in(Goal::getStatuses())],
         ]);
 
         // Create goal for the authenticated student
@@ -75,6 +86,8 @@ class GoalController extends Controller
             'target_amount' => $validated['target_amount'],
             'current_amount' => $validated['current_amount'] ?? 0.00,
             'deadline' => $validated['deadline'],
+            'goal_type' => $validated['goal_type'] ?? 'short-term',
+            'status' => $validated['status'] ?? 'in-progress',
         ]);
 
         // Load student relationship
@@ -153,7 +166,9 @@ class GoalController extends Controller
             'goal_name' => 'sometimes|string|max:255',
             'target_amount' => 'sometimes|numeric|min:0.01|max:9999999.99',
             'current_amount' => 'sometimes|numeric|min:0|max:9999999.99',
-            'deadline' => 'sometimes|date|after:today',
+            'deadline' => 'sometimes|date',
+            'goal_type' => ['sometimes', Rule::in(Goal::getGoalTypes())],
+            'status' => ['sometimes', Rule::in(Goal::getStatuses())],
         ]);
 
         // Ensure current_amount doesn't exceed target_amount
@@ -274,11 +289,59 @@ class GoalController extends Controller
         $goal->current_amount = $newAmount;
         $goal->save();
 
+        // Update status automatically
+        $goal->updateStatus();
+
         // Load student relationship
+        $goal->refresh();
         $goal->load('student:id,name,email');
 
         return response()->json([
             'message' => 'Progress added successfully',
+            'data' => $goal
+        ], 200);
+    }
+
+    /**
+     * Update goal status automatically.
+     * Accessible by: Students (only their own goals)
+     */
+    public function updateStatus($id)
+    {
+        $currentUser = Auth::user();
+
+        // Only students can update goal status
+        if ($currentUser->role !== 'student') {
+            return response()->json([
+                'message' => 'Only students can update goal status.'
+            ], 403);
+        }
+
+        // Find goal
+        $goal = Goal::find($id);
+
+        if (!$goal) {
+            return response()->json([
+                'message' => 'Goal not found'
+            ], 404);
+        }
+
+        // Students can only update their own goals
+        if ($goal->student_id != $currentUser->id) {
+            return response()->json([
+                'message' => 'Unauthorized. You can only update your own goals.'
+            ], 403);
+        }
+
+        // Update status
+        $goal->updateStatus();
+
+        // Reload goal
+        $goal->refresh();
+        $goal->load('student:id,name,email');
+
+        return response()->json([
+            'message' => 'Goal status updated successfully',
             'data' => $goal
         ], 200);
     }
@@ -300,12 +363,17 @@ class GoalController extends Controller
         $totalGoals = Goal::forStudent($currentUser->id)->count();
         $completedGoals = Goal::forStudent($currentUser->id)->completed()->count();
         $activeGoals = Goal::forStudent($currentUser->id)->active()->count();
+        $missedGoals = Goal::forStudent($currentUser->id)->missed()->count();
+
+        // Count by goal type
+        $shortTermGoals = Goal::forStudent($currentUser->id)->byType('short-term')->count();
+        $longTermGoals = Goal::forStudent($currentUser->id)->byType('long-term')->count();
 
         $totalTargetAmount = Goal::forStudent($currentUser->id)->sum('target_amount');
         $totalCurrentAmount = Goal::forStudent($currentUser->id)->sum('current_amount');
         $totalRemainingAmount = $totalTargetAmount - $totalCurrentAmount;
 
-        // Get overdue goals
+        // Get overdue goals (in-progress but past deadline)
         $overdueGoals = Goal::forStudent($currentUser->id)
             ->active()
             ->where('deadline', '<', now())
@@ -315,9 +383,14 @@ class GoalController extends Controller
             'message' => 'Goals summary retrieved successfully',
             'data' => [
                 'total_goals' => $totalGoals,
-                'completed_goals' => $completedGoals,
                 'active_goals' => $activeGoals,
+                'completed_goals' => $completedGoals,
+                'missed_goals' => $missedGoals,
                 'overdue_goals' => $overdueGoals,
+                'goal_type_counts' => [
+                    'short_term' => $shortTermGoals,
+                    'long_term' => $longTermGoals
+                ],
                 'financial_summary' => [
                     'total_target_amount' => number_format($totalTargetAmount, 2),
                     'total_current_amount' => number_format($totalCurrentAmount, 2),
@@ -326,6 +399,21 @@ class GoalController extends Controller
                         ? round(($totalCurrentAmount / $totalTargetAmount) * 100, 2) 
                         : 0
                 ]
+            ]
+        ], 200);
+    }
+
+    /**
+     * Get available goal types and statuses.
+     * Accessible by: All authenticated users
+     */
+    public function metadata()
+    {
+        return response()->json([
+            'message' => 'Metadata retrieved successfully',
+            'data' => [
+                'goal_types' => Goal::getGoalTypes(),
+                'statuses' => Goal::getStatuses()
             ]
         ], 200);
     }

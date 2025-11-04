@@ -35,6 +35,10 @@ class FinancialDataController extends Controller
             $query->where('category', $request->category);
         }
 
+        if ($request->has('payment_method')) {
+            $query->where('payment_method', $request->payment_method);
+        }
+
         if ($request->has('start_date') && $request->has('end_date')) {
             $query->whereBetween('entry_date', [$request->start_date, $request->end_date]);
         }
@@ -71,6 +75,8 @@ class FinancialDataController extends Controller
             'category' => ['required', 'string', 'max:255'],
             'amount' => 'required|numeric|min:0|max:9999999.99',
             'entry_date' => 'required|date|before_or_equal:today',
+            'payment_method' => ['nullable', 'string', 'max:50', Rule::in(FinancialData::getPaymentMethods())],
+            'description' => 'nullable|string|max:500',
         ]);
 
         // Create financial entry for the authenticated student
@@ -80,6 +86,8 @@ class FinancialDataController extends Controller
             'category' => $validated['category'],
             'amount' => $validated['amount'],
             'entry_date' => $validated['entry_date'],
+            'payment_method' => $validated['payment_method'] ?? null,
+            'description' => $validated['description'] ?? null,
         ]);
 
         // Load student relationship
@@ -153,6 +161,8 @@ class FinancialDataController extends Controller
             'category' => 'sometimes|string|max:255',
             'amount' => 'sometimes|numeric|min:0|max:9999999.99',
             'entry_date' => 'sometimes|date|before_or_equal:today',
+            'payment_method' => ['nullable', 'string', 'max:50', Rule::in(FinancialData::getPaymentMethods())],
+            'description' => 'nullable|string|max:500',
         ]);
 
         // Update entry
@@ -239,6 +249,16 @@ class FinancialDataController extends Controller
             ->orderBy('total', 'desc')
             ->get();
 
+        // Get payment method breakdown
+        $expensesByPaymentMethod = FinancialData::forStudent($currentUser->id)
+            ->ofType('expense')
+            ->dateRange($startDate, $endDate)
+            ->whereNotNull('payment_method')
+            ->selectRaw('payment_method, SUM(amount) as total')
+            ->groupBy('payment_method')
+            ->orderBy('total', 'desc')
+            ->get();
+
         return response()->json([
             'message' => 'Financial summary retrieved successfully',
             'data' => [
@@ -251,13 +271,14 @@ class FinancialDataController extends Controller
                     'total_expenses' => number_format($totalExpenses, 2),
                     'balance' => number_format($balance, 2)
                 ],
-                'expenses_by_category' => $expensesByCategory
+                'expenses_by_category' => $expensesByCategory,
+                'expenses_by_payment_method' => $expensesByPaymentMethod
             ]
         ], 200);
     }
 
     /**
-     * Get available entry types and categories.
+     * Get available entry types, categories, and payment methods.
      * Accessible by: All authenticated users
      */
     public function metadata()
@@ -266,8 +287,9 @@ class FinancialDataController extends Controller
             'message' => 'Metadata retrieved successfully',
             'data' => [
                 'entry_types' => FinancialData::getEntryTypes(),
-                'categories' => FinancialData::getCategories()
+                'categories' => FinancialData::getCategories(),
+                'payment_methods' => FinancialData::getPaymentMethods()
             ]
         ], 200);
     }
-};
+}

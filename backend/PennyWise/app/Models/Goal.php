@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Carbon\Carbon;
 
 class Goal extends Model
 {
@@ -92,7 +93,7 @@ class Goal extends Model
      */
     public function getIsCompletedAttribute(): bool
     {
-        return $this->current_amount >= $this->target_amount;
+        return $this->status === 'completed' || $this->current_amount >= $this->target_amount;
     }
 
     /**
@@ -102,7 +103,30 @@ class Goal extends Model
      */
     public function getIsOverdueAttribute(): bool
     {
-        return !$this->is_completed && \Carbon\Carbon::parse($this->deadline)->isPast();
+        return $this->status === 'in-progress' && Carbon::parse($this->deadline)->isPast();
+    }
+
+    /**
+     * Automatically update status based on current_amount and deadline.
+     */
+    public function updateStatus(): void
+    {
+        $now = Carbon::now();
+
+        // Check if goal is completed
+        if ($this->current_amount >= $this->target_amount) {
+            $this->status = 'completed';
+        }
+        // Check if deadline has passed and goal not completed
+        elseif ($now->isAfter($this->deadline)) {
+            $this->status = 'missed';
+        }
+        // Otherwise, goal is in progress
+        else {
+            $this->status = 'in-progress';
+        }
+
+        $this->save();
     }
 
     /**
@@ -114,11 +138,11 @@ class Goal extends Model
     }
 
     /**
-     * Scope a query to only include active goals (not completed).
+     * Scope a query to only include active goals (in-progress status).
      */
     public function scopeActive($query)
     {
-        return $query->whereRaw('current_amount < target_amount');
+        return $query->where('status', 'in-progress');
     }
 
     /**
@@ -126,7 +150,58 @@ class Goal extends Model
      */
     public function scopeCompleted($query)
     {
-        return $query->whereRaw('current_amount >= target_amount');
+        return $query->where('status', 'completed');
+    }
+
+    /**
+     * Scope a query to only include missed goals.
+     */
+    public function scopeMissed($query)
+    {
+        return $query->where('status', 'missed');
+    }
+
+    /**
+     * Scope a query to filter by goal type.
+     */
+    public function scopeByType($query, $type)
+    {
+        return $query->where('goal_type', $type);
+    }
+
+    /**
+     * Scope a query to filter by status.
+     */
+    public function scopeByStatus($query, $status)
+    {
+        return $query->where('status', $status);
+    }
+
+    /**
+     * Get the available goal types.
+     *
+     * @return array
+     */
+    public static function getGoalTypes(): array
+    {
+        return [
+            'short-term',
+            'long-term'
+        ];
+    }
+
+    /**
+     * Get the available goal statuses.
+     *
+     * @return array
+     */
+    public static function getStatuses(): array
+    {
+        return [
+            'in-progress',
+            'completed',
+            'missed'
+        ];
     }
 
     /**
