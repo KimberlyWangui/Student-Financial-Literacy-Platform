@@ -129,7 +129,7 @@ const StudentDashboard = () => {
               <div className="dashboard-card quick-actions-card">
                 <h2 className="card-title">Quick Actions</h2>
                 <div className="quick-actions">
-                  <button className="action-btn primary">
+                  <button className="action-btn primary" onClick={() => navigate('/budgets')}>
                     Add Income/Expense
                   </button>
                   <button className="action-btn secondary">

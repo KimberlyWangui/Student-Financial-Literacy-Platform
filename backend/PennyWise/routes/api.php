@@ -69,6 +69,9 @@ Route::middleware('auth:sanctum')->group(function () {
     // STUDENT PROFILE ROUTES
     // ============================================
 
+    // Get profile metadata - available to all authenticated users
+    Route::get('student-profiles/metadata', [StudentProfileController::class, 'metadata']);
+
     // Get my profile (student only) - Must come before {id} route
     Route::get('student-profiles/me', [StudentProfileController::class, 'myProfile']);
 
@@ -80,12 +83,12 @@ Route::middleware('auth:sanctum')->group(function () {
     // Routes accessible by both students and admins
     Route::middleware('student.or.admin')->group(function () {
         // Create profile
-        Route::post(  'student-profiles',      [StudentProfileController::class, 'store']);
+        Route::post('student-profiles', [StudentProfileController::class, 'store']);
 
         // View, update, and delete specific profile
-        Route::get(   'student-profiles/{id}', [StudentProfileController::class, 'show']);
-        Route::put(   'student-profiles/{id}', [StudentProfileController::class, 'update']);
-        Route::patch( 'student-profiles/{id}', [StudentProfileController::class, 'update']);
+        Route::get('student-profiles/{id}', [StudentProfileController::class, 'show']);
+        Route::put('student-profiles/{id}', [StudentProfileController::class, 'update']);
+        Route::patch('student-profiles/{id}', [StudentProfileController::class, 'update']);
         Route::delete('student-profiles/{id}', [StudentProfileController::class, 'destroy']);
     });
 

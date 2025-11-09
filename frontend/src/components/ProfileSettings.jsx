@@ -30,18 +30,39 @@ const ProfileSettings = () => {
     year_of_study: '',
     living_situation: '',
     monthly_allowance_range: '',
-    course: ''
+    course: '',
+    birth_date: '',
+    gender: ''
+  });
+
+  const [metadata, setMetadata] = useState({
+    allowance_ranges: [],
+    gender_options: [],
+    years_of_study: [],
+    living_situations: []
   });
 
   const [hasStudentProfile, setHasStudentProfile] = useState(false);
   const [studentProfileId, setStudentProfileId] = useState(null);
 
-  // Fetch student profile on component mount
+  // Fetch metadata and student profile on component mount
   useEffect(() => {
     if (user?.role === 'student') {
+      fetchMetadata();
       fetchStudentProfile();
     }
   }, []);
+
+  const fetchMetadata = async () => {
+    try {
+      const response = await api.get('/student-profiles/metadata');
+      if (response.data && response.data.data) {
+        setMetadata(response.data.data);
+      }
+    } catch (err) {
+      console.error('Error fetching metadata:', err);
+    }
+  };
 
   const fetchStudentProfile = async () => {
     try {
@@ -53,10 +74,12 @@ const ProfileSettings = () => {
           year_of_study: profile.year_of_study || '',
           living_situation: profile.living_situation || '',
           monthly_allowance_range: profile.monthly_allowance_range || '',
-          course: profile.course || ''
+          course: profile.course || '',
+          birth_date: profile.birth_date || '',
+          gender: profile.gender || ''
         });
         setHasStudentProfile(true);
-        setStudentProfileId(profile.id);
+        setStudentProfileId(profile.profile_id);
       }
     } catch (err) {
       console.log('No student profile found or error fetching:', err);
@@ -186,8 +209,11 @@ const ProfileSettings = () => {
         response = await api.post('/student-profiles', studentProfileData);
         setMessage('Student profile created successfully!');
         setHasStudentProfile(true);
-        setStudentProfileId(response.data.data.id);
+        setStudentProfileId(response.data.data.profile_id);
       }
+
+      // Refresh profile data after successful save
+      await fetchStudentProfile();
       
     } catch (err) {
       console.error('Student profile error:', err);
@@ -357,43 +383,53 @@ const ProfileSettings = () => {
               <h2 className="card-title">Student Profile</h2>
               <p className="card-description">
                 {hasStudentProfile 
-                  ? 'Update your academic and financial information' 
+                  ? 'Update your academic and personal information' 
                   : 'Create your student profile to get personalized recommendations'}
               </p>
               
               <form onSubmit={handleStudentProfileSubmit} className="profile-form">
-                <div className="form-group">
-                  <label htmlFor="year_of_study">Year of Study</label>
-                  <input
-                    type="text"
-                    id="year_of_study"
-                    name="year_of_study"
-                    value={studentProfileData.year_of_study}
-                    onChange={handleStudentProfileChange}
-                    placeholder="e.g., one, two, three, four"
-                    required
-                    disabled={loading}
-                    maxLength={255}
-                  />
+                <div className="form-row">
+                  <div className="form-group">
+                    <label htmlFor="year_of_study">Year of Study *</label>
+                    <select
+                      id="year_of_study"
+                      name="year_of_study"
+                      value={studentProfileData.year_of_study}
+                      onChange={handleStudentProfileChange}
+                      required
+                      disabled={loading}
+                    >
+                      <option value="">Select year</option>
+                      {metadata.years_of_study.map(year => (
+                        <option key={year} value={year}>
+                          Year {year.charAt(0).toUpperCase() + year.slice(1)}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="form-group">
+                    <label htmlFor="living_situation">Living Situation *</label>
+                    <select
+                      id="living_situation"
+                      name="living_situation"
+                      value={studentProfileData.living_situation}
+                      onChange={handleStudentProfileChange}
+                      required
+                      disabled={loading}
+                    >
+                      <option value="">Select living situation</option>
+                      {metadata.living_situations.map(situation => (
+                        <option key={situation} value={situation}>
+                          {situation}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
 
                 <div className="form-group">
-                  <label htmlFor="living_situation">Living Situation</label>
-                  <input
-                    type="text"
-                    id="living_situation"
-                    name="living_situation"
-                    value={studentProfileData.living_situation}
-                    onChange={handleStudentProfileChange}
-                    placeholder="e.g., On-campus dormitory, Off-campus apartment, With parents"
-                    required
-                    disabled={loading}
-                    maxLength={255}
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label htmlFor="monthly_allowance_range">Monthly Allowance Range</label>
+                  <label htmlFor="monthly_allowance_range">Monthly Allowance Range *</label>
                   <select
                     id="monthly_allowance_range"
                     name="monthly_allowance_range"
@@ -403,28 +439,65 @@ const ProfileSettings = () => {
                     disabled={loading}
                   >
                     <option value="">Select your monthly allowance range</option>
-                    <option value="0 – 5,000">0 – 5,000</option>
-                    <option value="5,001 – 10,000">5,001 – 10,000</option>
-                    <option value="10,001 – 20,000">10,001 – 20,000</option>
-                    <option value="20,001 – 35,000">20,001 – 35,000</option>
-                    <option value="35,001 – 50,000+">35,001 – 50,000+</option>
+                    {metadata.allowance_ranges.map(range => (
+                      <option key={range} value={range}>
+                        KSh {range}
+                      </option>
+                    ))}
                   </select>
                   <span className="helper-text">Select the range that best matches your monthly budget</span>
                 </div>
 
                 <div className="form-group">
-                  <label htmlFor="course">Course/Major</label>
+                  <label htmlFor="course">Course/Major *</label>
                   <input
                     type="text"
                     id="course"
                     name="course"
                     value={studentProfileData.course}
                     onChange={handleStudentProfileChange}
-                    placeholder="e.g., Computer Science, Business Administration, Engineering"
+                    placeholder="e.g., Computer Science, Business Administration"
                     required
                     disabled={loading}
                     maxLength={255}
                   />
+                </div>
+
+                <div className="form-row">
+                  <div className="form-group">
+                    <label htmlFor="birth_date">Birth Date</label>
+                    <input
+                      type="date"
+                      id="birth_date"
+                      name="birth_date"
+                      value={studentProfileData.birth_date}
+                      onChange={handleStudentProfileChange}
+                      disabled={loading}
+                      max={new Date().toISOString().split('T')[0]}
+                      min="1950-01-01"
+                    />
+                    <span className="helper-text">Your age will be calculated automatically</span>
+                  </div>
+
+                  <div className="form-group">
+                    <label htmlFor="gender">Gender</label>
+                    <select
+                      id="gender"
+                      name="gender"
+                      value={studentProfileData.gender}
+                      onChange={handleStudentProfileChange}
+                      disabled={loading}
+                    >
+                      <option value="">Select gender (optional)</option>
+                      {metadata.gender_options.map(gender => (
+                        <option key={gender} value={gender}>
+                          {gender === 'prefer_not_to_say' 
+                            ? 'Prefer not to say' 
+                            : gender.charAt(0).toUpperCase() + gender.slice(1)}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
 
                 <button type="submit" className="save-btn" disabled={loading}>

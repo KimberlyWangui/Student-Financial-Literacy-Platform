@@ -5,6 +5,7 @@ namespace Database\Seeders;
 use Illuminate\Database\Seeder;
 use App\Models\User;
 use App\Models\StudentProfile;
+use Carbon\Carbon;
 
 class StudentProfileSeeder extends Seeder
 {
@@ -25,6 +26,7 @@ class StudentProfileSeeder extends Seeder
             '35,001 – 50,000+',
         ];
 
+        $genders = ['male', 'female', 'other', 'prefer_not_to_say'];
         $livingSituations = ['Home', 'Hostel', 'Shared Apartment', 'Solo Apartment'];
         $yearsOfStudy = ['one', 'two', 'three', 'four'];
 
@@ -37,7 +39,7 @@ class StudentProfileSeeder extends Seeder
 
         // Distribute allowance ranges among all students proportionally
         $students->each(function ($student, $index) use (
-            $allowanceRanges, $livingSituations, $yearsOfStudy, $courses
+            $allowanceRanges, $genders, $livingSituations, $yearsOfStudy, $courses
         ) {
             // Distribute allowance based on index position to simulate diversity
             $rangeIndex = match (true) {
@@ -48,15 +50,34 @@ class StudentProfileSeeder extends Seeder
                 default => 4,          // 10% high (35,001 – 50,000+)
             };
 
+            // Generate realistic age for university students (18-26 years old)
+            $age = rand(18, 26);
+            
+            // Create birth date from age (subtract years and add random days for variation)
+            $birthDate = Carbon::now()
+                ->subYears($age)
+                ->subDays(rand(1, 365))
+                ->format('Y-m-d');
+
             StudentProfile::create([
                 'student_id' => $student->id,
                 'year_of_study' => $yearsOfStudy[array_rand($yearsOfStudy)],
                 'living_situation' => $livingSituations[array_rand($livingSituations)],
                 'monthly_allowance_range' => $allowanceRanges[$rangeIndex],
                 'course' => $courses[array_rand($courses)],
+                'birth_date' => $birthDate,
+                'gender' => $genders[array_rand($genders)],
             ]);
         });
 
         $this->command->info('✅ Student profiles successfully created for ' . $students->count() . ' users.');
+        
+        // Show age distribution
+        $profiles = StudentProfile::all();
+        $averageAge = $profiles->avg(function ($profile) {
+            return Carbon::parse($profile->birth_date)->age;
+        });
+        
+        $this->command->info('📊 Average student age: ' . round($averageAge, 1) . ' years');
     }
 }
