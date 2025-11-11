@@ -61,14 +61,46 @@ class StudentProfileController extends Controller
 
         // Validate request
         $validated = $request->validate([
-            'year_of_study' => 'required|string|max:255',
-            'living_situation' => 'required|string|max:255',
+            'year_of_study' => [
+                'required',
+                'string',
+                'max:255',
+                Rule::in(StudentProfile::getYearsOfStudy())
+            ],
+            'living_situation' => [
+                'required',
+                'string',
+                'max:255',
+                Rule::in(StudentProfile::getLivingSituations())
+            ],
             'monthly_allowance_range' => [
                 'required',
                 Rule::in(StudentProfile::getAllowanceRanges())
             ],
             'course' => 'required|string|max:255',
+            'birth_date' => 'nullable|date|before:today|after:1950-01-01',
+            'gender' => [
+                'nullable',
+                Rule::in(StudentProfile::getGenderOptions())
+            ],
         ]);
+
+        // Validate age if birth_date is provided
+        if (isset($validated['birth_date'])) {
+            $age = \Carbon\Carbon::parse($validated['birth_date'])->age;
+            
+            if ($age < 16) {
+                return response()->json([
+                    'message' => 'You must be at least 16 years old to create a profile.'
+                ], 422);
+            }
+            
+            if ($age > 100) {
+                return response()->json([
+                    'message' => 'Invalid birth date. Please check the date.'
+                ], 422);
+            }
+        }
 
         // Create profile for the authenticated student
         $profile = StudentProfile::create([
@@ -77,6 +109,8 @@ class StudentProfileController extends Controller
             'living_situation' => $validated['living_situation'],
             'monthly_allowance_range' => $validated['monthly_allowance_range'],
             'course' => $validated['course'],
+            'birth_date' => $validated['birth_date'] ?? null,
+            'gender' => $validated['gender'] ?? null,
         ]);
 
         // Load student relationship
@@ -144,14 +178,46 @@ class StudentProfileController extends Controller
 
         // Validate request
         $validated = $request->validate([
-            'year_of_study' => 'sometimes|string|max:255',
-            'living_situation' => 'sometimes|string|max:255',
+            'year_of_study' => [
+                'sometimes',
+                'string',
+                'max:255',
+                Rule::in(StudentProfile::getYearsOfStudy())
+            ],
+            'living_situation' => [
+                'sometimes',
+                'string',
+                'max:255',
+                Rule::in(StudentProfile::getLivingSituations())
+            ],
             'monthly_allowance_range' => [
                 'sometimes',
                 Rule::in(StudentProfile::getAllowanceRanges())
             ],
             'course' => 'sometimes|string|max:255',
+            'birth_date' => 'nullable|date|before:today|after:1950-01-01',
+            'gender' => [
+                'nullable',
+                Rule::in(StudentProfile::getGenderOptions())
+            ],
         ]);
+
+        // Validate age if birth_date is being updated
+        if (isset($validated['birth_date'])) {
+            $age = \Carbon\Carbon::parse($validated['birth_date'])->age;
+            
+            if ($age < 16) {
+                return response()->json([
+                    'message' => 'You must be at least 16 years old.'
+                ], 422);
+            }
+            
+            if ($age > 100) {
+                return response()->json([
+                    'message' => 'Invalid birth date. Please check the date.'
+                ], 422);
+            }
+        }
 
         // Update profile
         $profile->update($validated);
@@ -224,6 +290,23 @@ class StudentProfileController extends Controller
         return response()->json([
             'message' => 'Your profile retrieved successfully',
             'data' => $profile
+        ], 200);
+    }
+
+    /**
+     * Get profile metadata (allowance ranges, genders, years of study, living situations).
+     * Accessible by: All authenticated users
+     */
+    public function metadata()
+    {
+        return response()->json([
+            'message' => 'Metadata retrieved successfully',
+            'data' => [
+                'allowance_ranges' => StudentProfile::getAllowanceRanges(),
+                'gender_options' => StudentProfile::getGenderOptions(),
+                'years_of_study' => StudentProfile::getYearsOfStudy(),
+                'living_situations' => StudentProfile::getLivingSituations(),
+            ]
         ], 200);
     }
 }

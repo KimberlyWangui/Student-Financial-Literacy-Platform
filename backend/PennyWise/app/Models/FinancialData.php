@@ -86,16 +86,17 @@ class FinancialData extends Model
             'gift',
             'other income',
             
-            // Expense categories
-            'food',
-            'transport',
-            'accommodation',
-            'books & supplies',
-            'entertainment',
-            'utilities',
-            'clothing',
-            'healthcare',
-            'other expense'
+            // Expense categories 
+           'tuition_monthly',
+           'housing',
+           'food',
+           'transportation',
+           'books_supplies',
+           'entertainment',
+           'personal_care',
+           'technology',
+           'health_wellness',
+           'miscellaneous',
         ];
     }
 

@@ -9,6 +9,8 @@ import StudentDashboard from './components/StudentDashboard'
 import AdminDashboard from './components/AdminDashboard'
 import ForgotPassword from './components/ForgotPassword';
 import ResetPassword from './components/ResetPassword';
+import ProfileSettings from './components/ProfileSettings';
+import Budgets from './components/Budgets';
 import './App.css'
 
 function App() {
@@ -48,6 +50,8 @@ function App() {
 
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
+        <Route path="/profile-settings" element={<ProfileSettings />} />
+        <Route path="/budgets" element={<Budgets />} />
           
           {/* Catch all route - redirect to signin if route doesn't exist */}
           <Route path="*" element={<Navigate to="/" replace />} />
