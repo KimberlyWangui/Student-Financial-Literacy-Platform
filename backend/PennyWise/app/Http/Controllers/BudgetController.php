@@ -7,72 +7,75 @@ use App\Models\Budget;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
+use Illuminate\Http\JsonResponse;
 
 class BudgetController extends Controller
 {
     /**
      * Display a listing of budgets.
-     * Admin: View all budgets (READ only)
-     * Student: View only their own budgets
+     *
+     * @param Request $request
+     * @return JsonResponse
      */
-    public function index(Request $request)
+    public function index(Request $request): JsonResponse
     {
         $currentUser = Auth::user();
-
         $query = Budget::with('student:id,name,email');
 
-        // Students can only see their own budgets
         if ($currentUser->role === 'student') {
             $query->where('student_id', $currentUser->id);
         }
 
-        // Optional filters
         if ($request->has('category')) {
-            $query->where('category', $request->category);
+            $query->where('category', $request->input('category'));
         }
 
         if ($request->has('status')) {
-            // Filter by budget status enum
-            if (in_array($request->status, Budget::getStatuses())) {
-                $query->byStatus($request->status);
-            }
-            // Filter by date-based status
-            elseif ($request->status === 'active_period') {
+            $status = $request->input('status');
+            
+            if (in_array($status, Budget::getStatuses())) {
+                $query->byStatus($status);
+            } elseif ($status === 'active_period') {
                 $query->active();
-            } elseif ($request->status === 'expired_period') {
+            } elseif ($status === 'expired_period') {
                 $query->expired();
-            } elseif ($request->status === 'upcoming_period') {
+            } elseif ($status === 'upcoming_period') {
                 $query->upcoming();
             }
         }
 
-        // Sort by start_date descending (most recent first)
         $query->orderBy('start_date', 'desc');
+        $perPage = $request->input('per_page', 15);
+        
+        if ($perPage === 'all' || $perPage > 100) {
+            $budgets = $query->get();
+            return response()->json([
+                'message' => 'Budgets retrieved successfully',
+                'data' => $budgets
+            ], 200);
+        }
 
-        $budgets = $query->paginate($request->get('per_page', 15));
-
+        $budgets = $query->paginate($perPage);
         return response()->json([
             'message' => 'Budgets retrieved successfully',
-            'data' => $budgets
+            'data' => $budgets->items()
         ], 200);
     }
 
     /**
      * Store a newly created budget.
-     * Accessible by: Students only (only for themselves)
+     *
+     * @param Request $request
+     * @return JsonResponse
      */
-    public function store(Request $request)
+    public function store(Request $request): JsonResponse
     {
         $currentUser = Auth::user();
 
-        // Only students can create budgets
         if ($currentUser->role !== 'student') {
-            return response()->json([
-                'message' => 'Only students can create budgets.'
-            ], 403);
+            return response()->json(['message' => 'Only students can create budgets.'], 403);
         }
 
-        // Validate request
         $validated = $request->validate([
             'category' => 'required|string|max:255',
             'amount' => 'required|numeric|min:0.01|max:9999999.99',
@@ -82,7 +85,6 @@ class BudgetController extends Controller
             'status' => ['nullable', Rule::in(Budget::getStatuses())],
         ]);
 
-        // Check for overlapping budgets in the same category
         $overlapping = Budget::where('student_id', $currentUser->id)
             ->where('category', $validated['category'])
             ->where(function ($query) use ($validated) {
@@ -92,16 +94,12 @@ class BudgetController extends Controller
                         $q->where('start_date', '<=', $validated['start_date'])
                           ->where('end_date', '>=', $validated['end_date']);
                     });
-            })
-            ->exists();
+            })->exists();
 
         if ($overlapping) {
-            return response()->json([
-                'message' => 'A budget for this category already exists in the specified date range.'
-            ], 422);
+            return response()->json(['message' => 'A budget for this category already exists in the specified date range.'], 422);
         }
 
-        // Create budget for the authenticated student
         $budget = Budget::create([
             'student_id' => $currentUser->id,
             'category' => $validated['category'],
@@ -112,7 +110,6 @@ class BudgetController extends Controller
             'status' => $validated['status'] ?? 'active',
         ]);
 
-        // Load student relationship
         $budget->load('student:id,name,email');
 
         return response()->json([
@@ -123,27 +120,21 @@ class BudgetController extends Controller
 
     /**
      * Display the specified budget.
-     * Admin: View any budget (READ only)
-     * Student: View only their own budget
+     *
+     * @param int|string $id
+     * @return JsonResponse
      */
-    public function show($id)
+    public function show($id): JsonResponse
     {
         $currentUser = Auth::user();
-
-        // Find budget
         $budget = Budget::with('student:id,name,email')->find($id);
 
         if (!$budget) {
-            return response()->json([
-                'message' => 'Budget not found'
-            ], 404);
+            return response()->json(['message' => 'Budget not found'], 404);
         }
 
-        // Students can only view their own budgets
         if ($currentUser->role === 'student' && $budget->student_id != $currentUser->id) {
-            return response()->json([
-                'message' => 'Unauthorized. You can only view your own budgets.'
-            ], 403);
+            return response()->json(['message' => 'Unauthorized. You can only view your own budgets.'], 403);
         }
 
         return response()->json([
@@ -154,36 +145,29 @@ class BudgetController extends Controller
 
     /**
      * Update the specified budget.
-     * Accessible by: Students only (only their own budgets)
+     *
+     * @param Request $request
+     * @param int|string $id
+     * @return JsonResponse
      */
-    public function update(Request $request, $id)
+    public function update(Request $request, $id): JsonResponse
     {
         $currentUser = Auth::user();
 
-        // Only students can update budgets
         if ($currentUser->role !== 'student') {
-            return response()->json([
-                'message' => 'Only students can update budgets.'
-            ], 403);
+            return response()->json(['message' => 'Only students can update budgets.'], 403);
         }
 
-        // Find budget
         $budget = Budget::find($id);
 
         if (!$budget) {
-            return response()->json([
-                'message' => 'Budget not found'
-            ], 404);
+            return response()->json(['message' => 'Budget not found'], 404);
         }
 
-        // Students can only update their own budgets
         if ($budget->student_id != $currentUser->id) {
-            return response()->json([
-                'message' => 'Unauthorized. You can only update your own budgets.'
-            ], 403);
+            return response()->json(['message' => 'Unauthorized. You can only update your own budgets.'], 403);
         }
 
-        // Validate request
         $validated = $request->validate([
             'category' => 'sometimes|string|max:255',
             'amount' => 'sometimes|numeric|min:0.01|max:9999999.99',
@@ -193,17 +177,13 @@ class BudgetController extends Controller
             'status' => ['sometimes', Rule::in(Budget::getStatuses())],
         ]);
 
-        // If dates are being updated, check end_date is after start_date
         $startDate = $validated['start_date'] ?? $budget->start_date;
         $endDate = $validated['end_date'] ?? $budget->end_date;
 
         if ($endDate <= $startDate) {
-            return response()->json([
-                'message' => 'End date must be after start date'
-            ], 422);
+            return response()->json(['message' => 'End date must be after start date'], 422);
         }
 
-        // Check for overlapping budgets if category or dates are being updated
         if (isset($validated['category']) || isset($validated['start_date']) || isset($validated['end_date'])) {
             $category = $validated['category'] ?? $budget->category;
 
@@ -217,20 +197,14 @@ class BudgetController extends Controller
                             $q->where('start_date', '<=', $startDate)
                               ->where('end_date', '>=', $endDate);
                         });
-                })
-                ->exists();
+                })->exists();
 
             if ($overlapping) {
-                return response()->json([
-                    'message' => 'A budget for this category already exists in the specified date range.'
-                ], 422);
+                return response()->json(['message' => 'A budget for this category already exists in the specified date range.'], 422);
             }
         }
 
-        // Update budget
         $budget->update($validated);
-
-        // Load student relationship
         $budget->load('student:id,name,email');
 
         return response()->json([
@@ -241,80 +215,59 @@ class BudgetController extends Controller
 
     /**
      * Remove the specified budget.
-     * Accessible by: Students only (only their own budgets)
+     *
+     * @param int|string $id
+     * @return JsonResponse
      */
-    public function destroy($id)
+    public function destroy($id): JsonResponse
     {
         $currentUser = Auth::user();
 
-        // Only students can delete budgets
         if ($currentUser->role !== 'student') {
-            return response()->json([
-                'message' => 'Only students can delete budgets.'
-            ], 403);
+            return response()->json(['message' => 'Only students can delete budgets.'], 403);
         }
 
-        // Find budget
         $budget = Budget::find($id);
 
         if (!$budget) {
-            return response()->json([
-                'message' => 'Budget not found'
-            ], 404);
+            return response()->json(['message' => 'Budget not found'], 404);
         }
 
-        // Students can only delete their own budgets
         if ($budget->student_id != $currentUser->id) {
-            return response()->json([
-                'message' => 'Unauthorized. You can only delete your own budgets.'
-            ], 403);
+            return response()->json(['message' => 'Unauthorized. You can only delete your own budgets.'], 403);
         }
 
         $budget->delete();
 
-        return response()->json([
-            'message' => 'Budget deleted successfully'
-        ], 200);
+        return response()->json(['message' => 'Budget deleted successfully'], 200);
     }
 
     /**
      * Sync actual_spent for a budget from financial data.
-     * Accessible by: Students only (only their own budgets)
+     *
+     * @param int|string $id
+     * @return JsonResponse
      */
-    public function syncActualSpent($id)
+    public function syncActualSpent($id): JsonResponse
     {
         $currentUser = Auth::user();
 
-        // Only students can sync their budgets
         if ($currentUser->role !== 'student') {
-            return response()->json([
-                'message' => 'Only students can sync their budgets.'
-            ], 403);
+            return response()->json(['message' => 'Only students can sync their budgets.'], 403);
         }
 
-        // Find budget
         $budget = Budget::find($id);
 
         if (!$budget) {
-            return response()->json([
-                'message' => 'Budget not found'
-            ], 404);
+            return response()->json(['message' => 'Budget not found'], 404);
         }
 
-        // Students can only sync their own budgets
         if ($budget->student_id != $currentUser->id) {
-            return response()->json([
-                'message' => 'Unauthorized. You can only sync your own budgets.'
-            ], 403);
+            return response()->json(['message' => 'Unauthorized. You can only sync your own budgets.'], 403);
         }
 
-        // Sync actual_spent from financial data
         $budget->syncActualSpent();
-        
-        // Update status based on new actual_spent
         $budget->updateStatus();
-
-        // Reload budget
         $budget->refresh();
         $budget->load('student:id,name,email');
 
@@ -326,39 +279,29 @@ class BudgetController extends Controller
 
     /**
      * Update status for a budget.
-     * Accessible by: Students only (only their own budgets)
+     *
+     * @param int|string $id
+     * @return JsonResponse
      */
-    public function updateStatus($id)
+    public function updateStatus($id): JsonResponse
     {
         $currentUser = Auth::user();
 
-        // Only students can update their budget status
         if ($currentUser->role !== 'student') {
-            return response()->json([
-                'message' => 'Only students can update budget status.'
-            ], 403);
+            return response()->json(['message' => 'Only students can update budget status.'], 403);
         }
 
-        // Find budget
         $budget = Budget::find($id);
 
         if (!$budget) {
-            return response()->json([
-                'message' => 'Budget not found'
-            ], 404);
+            return response()->json(['message' => 'Budget not found'], 404);
         }
 
-        // Students can only update their own budgets
         if ($budget->student_id != $currentUser->id) {
-            return response()->json([
-                'message' => 'Unauthorized. You can only update your own budgets.'
-            ], 403);
+            return response()->json(['message' => 'Unauthorized. You can only update your own budgets.'], 403);
         }
 
-        // Update status
         $budget->updateStatus();
-
-        // Reload budget
         $budget->refresh();
         $budget->load('student:id,name,email');
 
@@ -370,65 +313,50 @@ class BudgetController extends Controller
 
     /**
      * Get budget summary for the authenticated student.
-     * Accessible by: Students only
+     *
+     * @return JsonResponse
      */
-    public function mySummary()
+    public function mySummary(): JsonResponse
     {
         $currentUser = Auth::user();
 
         if ($currentUser->role !== 'student') {
-            return response()->json([
-                'message' => 'Only students can access this endpoint.'
-            ], 403);
+            return response()->json(['message' => 'Only students can access this endpoint.'], 403);
         }
 
-        $totalBudgets = Budget::forStudent($currentUser->id)->count();
-        $activeBudgets = Budget::forStudent($currentUser->id)->active()->count();
-        $expiredBudgets = Budget::forStudent($currentUser->id)->expired()->count();
+        // Get all budgets for the student
+        $allBudgets = Budget::forStudent($currentUser->id)->get();
 
-        // Count by status
+        // Count by status (enum values)
         $statusCounts = [
-            'active' => Budget::forStudent($currentUser->id)->byStatus('active')->count(),
-            'completed' => Budget::forStudent($currentUser->id)->byStatus('completed')->count(),
-            'over' => Budget::forStudent($currentUser->id)->byStatus('over')->count(),
-            'under' => Budget::forStudent($currentUser->id)->byStatus('under')->count(),
+            'active'    => $allBudgets->where('status', 'active')->count(),
+            'completed' => $allBudgets->where('status', 'completed')->count(),
+            'over'      => $allBudgets->where('status', 'over')->count(),
+            'under'     => $allBudgets->where('status', 'under')->count(),
         ];
 
-        // Get total budgeted amount for active budgets (by date)
-        $totalBudgetedAmount = Budget::forStudent($currentUser->id)
-            ->active()
-            ->sum('amount');
-
-        // Get total actual spent for active budgets
-        $totalActualSpent = Budget::forStudent($currentUser->id)
-            ->active()
-            ->sum('actual_spent');
-
-        $totalRemaining = max($totalBudgetedAmount - $totalActualSpent, 0);
-
-        // Get budgets with exceeded status
-        $activeBudgetsList = Budget::forStudent($currentUser->id)
-            ->active()
-            ->get();
-
-        $exceededBudgets = $activeBudgetsList->filter(function ($budget) {
-            return $budget->is_exceeded;
+        // Count actually exceeded budgets (regardless of status)
+        $exceededCount = $allBudgets->filter(function ($budget) {
+            return (float)$budget->actual_spent > (float)$budget->amount;
         })->count();
+
+        // Get total budgeted amount for all budgets
+        $totalBudgetedAmount = $allBudgets->sum('amount');
+        $totalActualSpent = $allBudgets->sum('actual_spent');
+        $totalRemaining = max($totalBudgetedAmount - $totalActualSpent, 0);
 
         return response()->json([
             'message' => 'Budget summary retrieved successfully',
             'data' => [
-                'total_budgets' => $totalBudgets,
-                'active_budgets_by_period' => $activeBudgets,
-                'expired_budgets_by_period' => $expiredBudgets,
-                'exceeded_budgets' => $exceededBudgets,
+                'total_budgets' => (float) $totalBudgetedAmount,
+                'exceeded_budgets' => $exceededCount,
                 'status_counts' => $statusCounts,
                 'financial_summary' => [
-                    'total_budgeted_amount' => number_format($totalBudgetedAmount, 2),
-                    'total_actual_spent' => number_format($totalActualSpent, 2),
-                    'total_remaining' => number_format($totalRemaining, 2),
-                    'overall_usage_percentage' => $totalBudgetedAmount > 0 
-                        ? round(($totalActualSpent / $totalBudgetedAmount) * 100, 2) 
+                    'total_budgeted_amount'    => (float) $totalBudgetedAmount,
+                    'total_actual_spent'       => (float) $totalActualSpent,
+                    'total_remaining'          => (float) $totalRemaining,
+                    'overall_usage_percentage' => $totalBudgetedAmount > 0
+                        ? round(($totalActualSpent / $totalBudgetedAmount) * 100, 2)
                         : 0
                 ]
             ]
@@ -437,9 +365,10 @@ class BudgetController extends Controller
 
     /**
      * Get available budget categories and statuses.
-     * Accessible by: All authenticated users
+     *
+     * @return JsonResponse
      */
-    public function metadata()
+    public function metadata(): JsonResponse
     {
         return response()->json([
             'message' => 'Metadata retrieved successfully',

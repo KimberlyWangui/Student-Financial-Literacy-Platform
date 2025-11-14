@@ -1,14 +1,131 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import authService from '../services/authService';
 import DashboardNavbar from '../components/DashboardNavbar';
 import DashboardFooter from '../components/DashboardFooter';
+import api from '../api/axios';
 import './StudentDashboard.css';
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+  Cell
+} from 'recharts';
 
 const StudentDashboard = () => {
   const navigate = useNavigate();
   const user = authService.getCurrentUser();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+
+  // State for real data
+  const [budgetData, setBudgetData] = useState({
+    totalBudget: 0,
+    totalIncome: 0,
+    totalExpenses: 0,
+    currentBalance: 0
+  });
+  const [recentTransactions, setRecentTransactions] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  const financialGoals = [
+    { name: 'Emergency Fund', progress: 57, current: 850, target: 1500 },
+    { name: 'New Laptop', progress: 30, current: 300, target: 1000 }
+  ];
+
+  useEffect(() => {
+    fetchDashboardData();
+  }, []);
+
+  const fetchDashboardData = async () => {
+  setLoading(true);
+  try {
+    // Fetch budget summary
+    const budgetResponse = await api.get('/budgets/my-summary');
+    
+    // Fetch financial summary
+    const financialResponse = await api.get('/financial-data/my-summary');
+    
+    // Fetch recent transactions
+    const transactionsResponse = await api.get('/financial-data', {
+      params: { per_page: 6 }
+    });
+
+    console.log('Budget Response:', budgetResponse.data);
+    console.log('Financial Response:', financialResponse.data);
+
+    // Process financial data FIRST
+    let totalIncome = 0;
+    let totalExpenses = 0;
+    let balance = 0;
+
+    if (financialResponse.data && financialResponse.data.data) {
+      const financialData = financialResponse.data.data;
+      
+      // Check if summary exists
+      if (financialData.summary) {
+        // Remove any commas and parse the values
+        const incomeStr = String(financialData.summary.total_income).replace(/,/g, '');
+        const expenseStr = String(financialData.summary.total_expenses).replace(/,/g, '');
+        const balanceStr = String(financialData.summary.balance).replace(/,/g, '');
+        
+        totalIncome = parseFloat(incomeStr) || 0;
+        totalExpenses = parseFloat(expenseStr) || 0;
+        balance = parseFloat(balanceStr) || 0;
+        
+        console.log('Parsed Financial Data:', {
+          totalIncome,
+          totalExpenses,
+          balance
+        });
+      }
+    }
+
+    // Process budget data
+    let totalBudget = 0;
+    
+    if (budgetResponse.data && budgetResponse.data.data) {
+      const budgetSummary = budgetResponse.data.data;
+      
+      // Get total budgeted amount
+      if (budgetSummary.total_budgets) {
+        totalBudget = parseFloat(budgetSummary.total_budgets) || 0;
+      } else if (budgetSummary.financial_summary && budgetSummary.financial_summary.total_budgeted_amount) {
+        totalBudget = parseFloat(budgetSummary.financial_summary.total_budgeted_amount) || 0;
+      }
+      
+      console.log('Total Budget:', totalBudget);
+    }
+
+    setBudgetData({
+      totalBudget: totalBudget,
+      totalIncome: totalIncome,
+      totalExpenses: totalExpenses,
+      currentBalance: balance
+    });
+
+    // Process transactions
+    let transactionData = [];
+    if (transactionsResponse.data && transactionsResponse.data.data) {
+      if (Array.isArray(transactionsResponse.data.data.data)) {
+        transactionData = transactionsResponse.data.data.data;
+      } else if (Array.isArray(transactionsResponse.data.data)) {
+        transactionData = transactionsResponse.data.data;
+      }
+    }
+    setRecentTransactions(transactionData);
+
+  } catch (err) {
+    console.error('Error fetching dashboard data:', err);
+    console.error('Error details:', err.response?.data);
+  } finally {
+    setLoading(false);
+  }
+ };
 
   const handleLogout = async () => {
     if (isLoggingOut) return;
@@ -29,26 +146,31 @@ const StudentDashboard = () => {
     }
   };
 
-  // Mock data - will be replaced with backend data later
-  const budgetData = {
-    currentBalance: 1862.31,
-    income: 800,
-    expenses: 137.69
+  const formatDate = (dateString) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: '2-digit' });
   };
 
-  const financialGoals = [
-    { name: 'Emergency Fund', progress: 57, current: 850, target: 1500 },
-    { name: 'New Laptop', progress: 30, current: 300, target: 1000 }
+  // Prepare data for bar chart - placed right before the return statement
+  const chartData = [
+    {
+      name: 'Budget',
+      amount: budgetData.totalBudget,
+      fill: '#4c6ef5'
+    },
+    {
+      name: 'Income',
+      amount: budgetData.totalIncome,
+      fill: '#10b981'
+    },
+    {
+      name: 'Expenses',
+      amount: budgetData.totalExpenses,
+      fill: '#ef4444'
+    }
   ];
 
-  const recentTransactions = [
-    { date: '2024-07-28', description: 'Coffee at Local Cafe', category: 'Food & Drinks', amount: -4.5 },
-    { date: '2024-07-27', description: 'Monthly Allowance', category: 'Income', amount: 500 },
-    { date: '2024-07-26', description: 'Textbook Purchase', category: 'Education', amount: -75 },
-    { date: '2024-07-25', description: 'Online Subscription', category: 'Entertainment', amount: -12.99 },
-    { date: '2024-07-24', description: 'Part-time Job Payment', category: 'Income', amount: 300 },
-    { date: '2024-07-23', description: 'Groceries for the week', category: 'Food & Drinks', amount: -45.2 }
-  ];
+console.log('Chart Data:', chartData); // Debug log
 
   return (
     <div className="student-dashboard-page">
@@ -59,7 +181,7 @@ const StudentDashboard = () => {
           {/* Welcome Section */}
           <div className="welcome-section">
             <div>
-              <h1 className="welcome-title">Welcome back, {user?.name || 'Alex'}!</h1>
+              <h1 className="welcome-title">Welcome back, {user?.name || 'Student'}!</h1>
               <p className="welcome-subtitle">Here's a quick overview of your financial journey. Keep up the great work!</p>
             </div>
           </div>
@@ -78,20 +200,62 @@ const StudentDashboard = () => {
                 <div className="budget-summary">
                   <div className="budget-item">
                     <p className="budget-label">Current Balance</p>
-                    <p className="budget-value balance">${budgetData.currentBalance.toFixed(2)}</p>
+                    <p className="budget-value balance">KES {budgetData.currentBalance.toFixed(2)}</p>
                   </div>
                   <div className="budget-item">
                     <p className="budget-label">Income / Expenses</p>
                     <p className="budget-value income-expense">
-                      <span className="income">${budgetData.income}</span> / <span className="expense">${budgetData.expenses}</span>
+                      <span className="income">KES {budgetData.totalIncome.toFixed(2)}</span> / <span className="expense">KES {budgetData.totalExpenses.toFixed(2)}</span>
                     </p>
                   </div>
                 </div>
 
-                {/* Placeholder Chart */}
-                <div className="chart-placeholder">
-                  <p className="chart-text">📊 Chart visualization will go here</p>
-                  <p className="chart-subtext">Budget trends over time</p>
+                {/* Bar Chart */}
+                <div className="chart-container">
+                  {loading ? (
+                    <div className="chart-loading">Loading chart...</div>
+                  ) : (
+                    <ResponsiveContainer width="100%" height={280}>
+                      <BarChart
+                        data={chartData}
+                        margin={{ top: 20, right: 30, left: 20, bottom: 20 }}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                        <XAxis 
+                          dataKey="name" 
+                          tick={{ fill: '#666', fontSize: 14 }}
+                          axisLine={{ stroke: '#e5e7eb' }}
+                        />
+                        <YAxis 
+                          tick={{ fill: '#666', fontSize: 12 }}
+                          axisLine={{ stroke: '#e5e7eb' }}
+                          tickFormatter={(value) => `KES ${value.toLocaleString()}`}
+                        />
+                        <Tooltip 
+                          formatter={(value) => [`KES ${value.toFixed(2)}`, 'Amount']}
+                          contentStyle={{
+                            backgroundColor: 'white',
+                            border: '1px solid #e5e7eb',
+                            borderRadius: '8px',
+                            padding: '10px'
+                          }}
+                        />
+                        <Legend 
+                          wrapperStyle={{ paddingTop: '20px' }}
+                          iconType="square"
+                        />
+                        <Bar 
+                          dataKey="amount" 
+                          radius={[8, 8, 0, 0]}
+                          maxBarSize={80}
+                        >
+                          {chartData.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={entry.fill} />
+                          ))}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  )}
                 </div>
               </div>
 
@@ -102,24 +266,32 @@ const StudentDashboard = () => {
                   <p className="card-subtitle">Your latest financial activities.</p>
                 </div>
 
-                <div className="transactions-table">
-                  <div className="table-header">
-                    <span className="col-date">Date</span>
-                    <span className="col-description">Description</span>
-                    <span className="col-category">Category</span>
-                    <span className="col-amount">Amount</span>
+                {loading ? (
+                  <div className="loading-state">Loading transactions...</div>
+                ) : recentTransactions.length === 0 ? (
+                  <div className="empty-state">
+                    <p>No transactions yet. Start by adding your first income or expense!</p>
                   </div>
-                  {recentTransactions.map((transaction, index) => (
-                    <div key={index} className="table-row">
-                      <span className="col-date">{transaction.date}</span>
-                      <span className="col-description">{transaction.description}</span>
-                      <span className="col-category">{transaction.category}</span>
-                      <span className={`col-amount ${transaction.amount > 0 ? 'positive' : 'negative'}`}>
-                        {transaction.amount > 0 ? '+' : ''}{transaction.amount < 0 ? '-' : ''}${Math.abs(transaction.amount).toFixed(2)}
-                      </span>
+                ) : (
+                  <div className="transactions-table">
+                    <div className="table-header">
+                      <span className="col-date">Date</span>
+                      <span className="col-description">Description</span>
+                      <span className="col-category">Category</span>
+                      <span className="col-amount">Amount</span>
                     </div>
-                  ))}
-                </div>
+                    {recentTransactions.map((transaction) => (
+                      <div key={transaction.id || transaction.entry_id} className="table-row">
+                        <span className="col-date">{formatDate(transaction.entry_date)}</span>
+                        <span className="col-description">{transaction.description || transaction.category}</span>
+                        <span className="col-category">{transaction.category}</span>
+                        <span className={`col-amount ${transaction.entry_type === 'income' ? 'positive' : 'negative'}`}>
+                          {transaction.entry_type === 'income' ? '+' : '-'}KES {parseFloat(transaction.amount).toFixed(2)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
 
@@ -129,7 +301,7 @@ const StudentDashboard = () => {
               <div className="dashboard-card quick-actions-card">
                 <h2 className="card-title">Quick Actions</h2>
                 <div className="quick-actions">
-                  <button className="action-btn primary" onClick={() => navigate('/budgets')}>
+                  <button className="action-btn primary" onClick={() => navigate('/finance-hub')}>
                     Add Income/Expense
                   </button>
                   <button className="action-btn secondary">
@@ -153,7 +325,7 @@ const StudentDashboard = () => {
                       <div className="progress-bar">
                         <div className="progress-fill" style={{ width: `${goal.progress}%` }}></div>
                       </div>
-                      <p className="goal-amount">${goal.current} of ${goal.target}</p>
+                      <p className="goal-amount">KES {goal.current} of KES {goal.target}</p>
                     </div>
                   ))}
                 </div>

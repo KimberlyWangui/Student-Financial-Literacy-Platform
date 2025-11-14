@@ -19,8 +19,8 @@ const DashboardNavbar = ({ activePage = 'Dashboard' }) => {
   };
 
   const navLinks = [
-    { name: 'Home', path: '/' },
     { name: 'Dashboard', path: '/student/dashboard' },
+    { name: 'Finance Hub', path: '/finance-hub' },
     { name: 'Budgets', path: '/budgets' },
     { name: 'Simulation', path: '/simulation' },
     { name: 'Recommendations', path: '/recommendations' },

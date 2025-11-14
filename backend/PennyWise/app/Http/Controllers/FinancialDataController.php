@@ -7,6 +7,7 @@ use App\Models\FinancialData;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
+use Illuminate\Support\Facades\Log;
 
 class FinancialDataController extends Controller
 {
@@ -47,6 +48,12 @@ class FinancialDataController extends Controller
         $query->orderBy('entry_date', 'desc');
 
         $entries = $query->paginate($request->get('per_page', 15));
+        
+        // Add 'id' to each entry for frontend consistency
+        $entries->getCollection()->transform(function ($entry) {
+            $entry->id = $entry->entry_id;
+            return $entry;
+        });
 
         return response()->json([
             'message' => 'Financial data retrieved successfully',
@@ -108,8 +115,10 @@ class FinancialDataController extends Controller
     {
         $currentUser = Auth::user();
 
-        // Find entry
-        $entry = FinancialData::with('student:id,name,email')->find($id);
+        // Find entry using the correct primary key
+        $entry = FinancialData::where('entry_id', $id)
+            ->with('student:id,name,email')
+            ->first();
 
         if (!$entry) {
             return response()->json([
@@ -139,8 +148,8 @@ class FinancialDataController extends Controller
     {
         $currentUser = Auth::user();
 
-        // Find entry
-        $entry = FinancialData::find($id);
+        // Find entry using the correct primary key
+        $entry = FinancialData::where('entry_id', $id)->first();
 
         if (!$entry) {
             return response()->json([
@@ -186,8 +195,13 @@ class FinancialDataController extends Controller
     {
         $currentUser = Auth::user();
 
-        // Find entry
-        $entry = FinancialData::find($id);
+        Log::info('Delete request received', [
+        'id' => $id,
+        'user_id' => $currentUser->id
+    ]);
+
+        // Find entry using the correct primary key
+        $entry = FinancialData::where('entry_id', $id)->first();
 
         if (!$entry) {
             return response()->json([
