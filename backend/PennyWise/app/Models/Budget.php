@@ -126,7 +126,7 @@ class Budget extends Model
      */
     public function getIsExceededAttribute(): bool
     {
-        return $this->actual_spent > $this->amount;
+        return (float) $this->actual_spent > (float) $this->amount;
     }
 
     /**
@@ -253,15 +253,15 @@ class Budget extends Model
     public static function getCategories(): array
     {
         return [
-            'food',
-            'transport',
-            'accommodation',
-            'books & supplies',
-            'entertainment',
-            'utilities',
-            'clothing',
-            'healthcare',
-            'other expense'
+        'Food & Drinks',
+        'Transportation',
+        'Entertainment',
+        'Education',
+        'Housing',
+        'Utilities',
+        'Healthcare',
+        'Shopping',
+        'Other'
         ];
     }
 
@@ -281,9 +281,20 @@ class Budget extends Model
     }
 
     /**
+     * Get the budget ID (alias for budget_id).
+     *
+     * @return mixed
+     */
+    public function getIdAttribute()
+    {
+        return $this->budget_id;
+    }
+
+    /**
      * Append custom attributes to JSON responses.
      */
     protected $appends = [
+        'id',
         'total_spent',
         'remaining_budget',
         'usage_percentage',
@@ -292,4 +303,31 @@ class Budget extends Model
         'is_expired',
         'days_remaining'
     ];
+
+    /**
+ * Boot the model.
+ */
+protected static function booted()
+{
+    // Automatically update status when actual_spent changes
+    static::saving(function ($budget) {
+        if ($budget->isDirty('actual_spent')) {
+            $now = Carbon::now();
+
+            if ($now->isAfter($budget->end_date)) {
+                // Budget period has ended
+                if ($budget->actual_spent > $budget->amount) {
+                    $budget->status = 'over';
+                } elseif ($budget->actual_spent < $budget->amount) {
+                    $budget->status = 'under';
+                } else {
+                    $budget->status = 'completed';
+                }
+            } else {
+                // Budget period is ongoing - keep as active
+                $budget->status = 'active';
+            }
+        }
+    });
+}
 }

@@ -148,4 +148,14 @@ class FinancialData extends Model
     {
         return $query->where('payment_method', $paymentMethod);
     }
+
+    /**
+     * Get the ID attribute.
+     *
+     * @return mixed
+     */
+    public function getIdAttribute()
+    {
+        return $this->entry_id;
+    }
 }
