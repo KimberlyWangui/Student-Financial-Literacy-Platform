@@ -321,45 +321,32 @@ const FinanceHub = () => {
   };
 
   const handleDeleteTransaction = async (transaction) => {
-  // Debug logging
-  console.log('Transaction object:', transaction);
-  console.log('Transaction ID:', transaction.id);
-  console.log('Transaction entry_id:', transaction.entry_id);
-  
-  // Get the correct ID (either id or entry_id)
-  const transactionId = transaction.id || transaction.entry_id;
-  
-  console.log('Using ID:', transactionId);
-  
-  if (!transactionId) {
-    setError('Transaction ID not found');
-    setTimeout(() => setError(''), 3000);
-    return;
-  }
-  
-  if (!window.confirm('Are you sure you want to delete this transaction?')) {
-    return;
-  }
+    const transactionId = transaction.id || transaction.entry_id;
+    
+    if (!transactionId) {
+      setError('Transaction ID not found');
+      setTimeout(() => setError(''), 3000);
+      return;
+    }
+    
+    if (!window.confirm('Are you sure you want to delete this transaction?')) {
+      return;
+    }
 
-  try {
-    console.log('Deleting transaction with ID:', transactionId);
-    const response = await api.delete(`/financial-data/${transactionId}`);
-    console.log('Delete response:', response);
-    
-    setMessage('Transaction deleted successfully!');
-    
-    setTimeout(() => {
-      setMessage('');
-      fetchTransactions();
-    }, 1500);
-  } catch (err) {
-    console.error('Error deleting transaction:', err);
-    console.error('Error response:', err.response);
-    console.error('Error details:', err.response?.data);
-    setError(err.response?.data?.message || 'Failed to delete transaction.');
-    setTimeout(() => setError(''), 3000);
-  }
-};
+    try {
+      await api.delete(`/financial-data/${transactionId}`);
+      setMessage('Transaction deleted successfully!');
+      
+      setTimeout(() => {
+        setMessage('');
+        fetchTransactions();
+      }, 1500);
+    } catch (err) {
+      console.error('Error deleting transaction:', err);
+      setError(err.response?.data?.message || 'Failed to delete transaction.');
+      setTimeout(() => setError(''), 3000);
+    }
+  };
 
   const formatDate = (dateString) => {
     const date = new Date(dateString);
@@ -372,19 +359,75 @@ const FinanceHub = () => {
   };
 
   const getCategoryIcon = (category) => {
-    const icons = {
-      'Food & Drinks': '🍔',
-      'Transportation': '🚗',
-      'Entertainment': '🎬',
-      'Education': '📚',
-      'Housing': '🏠',
-      'Utilities': '💡',
-      'Healthcare': '🏥',
-      'Shopping': '🛍️',
-      'Salary': '💵',
-      'Other': '📦'
+    const iconMap = {
+      'Food & Drinks': (
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <path d="M18 8h1a4 4 0 0 1 0 8h-1"></path>
+          <path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"></path>
+          <line x1="6" y1="1" x2="6" y2="4"></line>
+          <line x1="10" y1="1" x2="10" y2="4"></line>
+          <line x1="14" y1="1" x2="14" y2="4"></line>
+        </svg>
+      ),
+      'Transportation': (
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2"></path>
+          <circle cx="7" cy="17" r="2"></circle>
+          <path d="M9 17h6"></path>
+          <circle cx="17" cy="17" r="2"></circle>
+        </svg>
+      ),
+      'Entertainment': (
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <rect x="2" y="7" width="20" height="15" rx="2" ry="2"></rect>
+          <polyline points="17 2 12 7 7 2"></polyline>
+        </svg>
+      ),
+      'Education': (
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
+          <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
+        </svg>
+      ),
+      'Housing': (
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+          <polyline points="9 22 9 12 15 12 15 22"></polyline>
+        </svg>
+      ),
+      'Utilities': (
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+        </svg>
+      ),
+      'Healthcare': (
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <path d="M22 12h-4l-3 9L9 3l-3 9H2"></path>
+        </svg>
+      ),
+      'Shopping': (
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <circle cx="9" cy="21" r="1"></circle>
+          <circle cx="20" cy="21" r="1"></circle>
+          <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path>
+        </svg>
+      ),
+      'Salary': (
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <line x1="12" y1="1" x2="12" y2="23"></line>
+          <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+        </svg>
+      ),
+      'Other': (
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+          <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+          <line x1="12" y1="22.08" x2="12" y2="12"></line>
+        </svg>
+      )
     };
-    return icons[category] || '💰';
+    
+    return iconMap[category] || iconMap['Other'];
   };
 
   return (
@@ -395,6 +438,12 @@ const FinanceHub = () => {
         <div className="finance-hub-container">
           {/* Page Header */}
           <div className="page-header">
+            <div className="page-header-icon">
+              <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect>
+                <line x1="1" y1="10" x2="23" y2="10"></line>
+              </svg>
+            </div>
             <h1>Finance Hub</h1>
             <p>Manage your income, expenses, and budgets all in one place</p>
           </div>
@@ -472,9 +521,41 @@ const FinanceHub = () => {
             <div className="finance-left">
               <div className="finance-card">
                 <h2 className="card-title">
-                  {activeView === 'add-income' && '💵 Add New Income'}
-                  {activeView === 'add-expense' && '💳 Add New Expense'}
-                  {activeView === 'set-budget' && (editingBudget ? '✏️ Edit Budget' : '🎯 Set New Budget')}
+                  {activeView === 'add-income' && (
+                    <>
+                      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <line x1="12" y1="1" x2="12" y2="23"></line>
+                        <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+                      </svg>
+                      Add New Income
+                    </>
+                  )}
+                  {activeView === 'add-expense' && (
+                    <>
+                      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect>
+                        <line x1="1" y1="10" x2="23" y2="10"></line>
+                      </svg>
+                      Add New Expense
+                    </>
+                  )}
+                  {activeView === 'set-budget' && (
+                    <>
+                      {editingBudget ? (
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                          <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                        </svg>
+                      ) : (
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <circle cx="12" cy="12" r="10"></circle>
+                          <path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"></path>
+                          <path d="M12 18V6"></path>
+                        </svg>
+                      )}
+                      {editingBudget ? 'Edit Budget' : 'Set New Budget'}
+                    </>
+                  )}
                 </h2>
 
                 {/* Income/Expense Form */}
@@ -580,9 +661,7 @@ const FinanceHub = () => {
                       >
                         <option value="">Select a category</option>
                         {budgetMetadata.categories.map((cat, index) => (
-                          <option key={index} value={cat}>
-                            {getCategoryIcon(cat)} {cat}
-                          </option>
+                          <option key={index} value={cat}>{cat}</option>
                         ))}
                       </select>
                     </div>
@@ -633,7 +712,12 @@ const FinanceHub = () => {
                     </div>
 
                     <button type="submit" className="submit-btn" disabled={loading}>
-                      {loading ? 'Saving...' : editingBudget ? '💾 Update Budget' : ' Create Budget'}
+                      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: '8px' }}>
+                        <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+                        <polyline points="17 21 17 13 7 13 7 21"></polyline>
+                        <polyline points="7 3 7 8 15 8"></polyline>
+                      </svg>
+                      {loading ? 'Saving...' : editingBudget ? 'Update Budget' : 'Create Budget'}
                     </button>
 
                     {editingBudget && (
@@ -671,7 +755,14 @@ const FinanceHub = () => {
             {/* Right Column - Spending Breakdown */}
             <div className="finance-right">
               <div className="finance-card">
-                <h2 className="card-title">📊 Spending Breakdown</h2>
+                <h2 className="card-title">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <line x1="18" y1="20" x2="18" y2="10"></line>
+                    <line x1="12" y1="20" x2="12" y2="4"></line>
+                    <line x1="6" y1="20" x2="6" y2="14"></line>
+                  </svg>
+                  Spending Breakdown
+                </h2>
                 {Object.keys(categoryBreakdown).length > 0 ? (
                   <div className="breakdown-container">
                     <div className="spending-chart">
@@ -737,7 +828,16 @@ const FinanceHub = () => {
 
           {/* Recent Transactions */}
           <div className="finance-card transactions-card">
-            <h2 className="card-title">📝 Recent Transactions</h2>
+            <h2 className="card-title">
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                <polyline points="14 2 14 8 20 8"></polyline>
+                <line x1="16" y1="13" x2="8" y2="13"></line>
+                <line x1="16" y1="17" x2="8" y2="17"></line>
+                <polyline points="10 9 9 9 8 9"></polyline>
+              </svg>
+              Recent Transactions
+            </h2>
             
             {transactionsLoading ? (
               <div className="loading-state">Loading transactions...</div>
@@ -770,18 +870,18 @@ const FinanceHub = () => {
                     </span>
                     <span className="col-action">
                       <button 
-                         onClick={() => handleDeleteTransaction(transaction)}
-                         className="delete-btn"
-                         title="Delete transaction"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <polyline points="3 6 5 6 21 6"></polyline>
-                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                        <line x1="10" y1="11" x2="10" y2="17"></line>
-                        <line x1="14" y1="11" x2="14" y2="17"></line>
-                     </svg>
-                   </button>
-                  </span>
+                        onClick={() => handleDeleteTransaction(transaction)}
+                        className="delete-btn"
+                        title="Delete transaction"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <polyline points="3 6 5 6 21 6"></polyline>
+                          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                          <line x1="10" y1="11" x2="10" y2="17"></line>
+                          <line x1="14" y1="11" x2="14" y2="17"></line>
+                        </svg>
+                      </button>
+                    </span>
                   </div>
                 ))}
               </div>
