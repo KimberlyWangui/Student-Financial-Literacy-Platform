@@ -304,7 +304,7 @@ console.log('Chart Data:', chartData); // Debug log
                   <button className="action-btn primary" onClick={() => navigate('/finance-hub')}>
                     Add Income/Expense
                   </button>
-                  <button className="action-btn secondary">
+                  <button className="action-btn secondary" onClick={() => navigate('/simulation')}>
                     Start Simulation
                   </button>
                 </div>

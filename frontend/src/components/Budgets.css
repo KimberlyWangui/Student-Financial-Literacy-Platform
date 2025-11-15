@@ -701,3 +701,73 @@
     width: 100%;
   }
 }
+/* Page Header Icon */
+.page-header-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 80px;
+  height: 80px;
+  background: linear-gradient(135deg, #4c6ef5 0%, #3b5bdb 100%);
+  border-radius: 20px;
+  margin-bottom: 20px;
+  box-shadow: 0 4px 20px rgba(76, 110, 245, 0.3);
+}
+
+.page-header-icon svg {
+  color: white;
+}
+
+/* Create Budget Button Icon */
+.create-budget-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.create-budget-btn svg {
+  flex-shrink: 0;
+}
+
+/* Section Title with Icon */
+.section-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.section-title svg {
+  color: #4c6ef5;
+  flex-shrink: 0;
+}
+
+/* Category Icon Styling */
+.category-icon-large {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+  border-radius: 12px;
+  flex-shrink: 0;
+}
+
+.category-icon-large svg {
+  color: #4c6ef5;
+}
+
+/* Enhanced Budget Card Animations */
+@keyframes iconPulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+}
+
+.budget-card:hover .category-icon-large {
+  animation: iconPulse 2s ease-in-out infinite;
+}
