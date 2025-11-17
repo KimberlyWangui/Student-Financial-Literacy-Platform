@@ -13,6 +13,7 @@ import ProfileSettings from './components/ProfileSettings';
 import Budgets from './components/Budgets';
 import FinanceHub from './components/FinanceHub';
 import Simulations from './components/Simulations';
+import Recommendations from './components/Recommendations';
 import './App.css'
 
 function App() {
@@ -56,6 +57,7 @@ function App() {
         <Route path="/budgets" element={<Budgets />} />
         <Route path="/finance-hub" element={<FinanceHub />} />
         <Route path="/simulation" element={<Simulations />} />
+        <Route path="/recommendations" element={<Recommendations />} />
           
           {/* Catch all route - redirect to signin if route doesn't exist */}
           <Route path="*" element={<Navigate to="/" replace />} />
