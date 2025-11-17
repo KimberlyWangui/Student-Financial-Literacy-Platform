@@ -31,6 +31,10 @@ const StudentDashboard = () => {
   });
   const [recentTransactions, setRecentTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
+  
+  // State for latest recommendation
+  const [latestRecommendation, setLatestRecommendation] = useState(null);
+  const [recommendationLoading, setRecommendationLoading] = useState(true);
 
   const financialGoals = [
     { name: 'Emergency Fund', progress: 57, current: 850, target: 1500 },
@@ -39,93 +43,121 @@ const StudentDashboard = () => {
 
   useEffect(() => {
     fetchDashboardData();
+    fetchLatestRecommendation();
   }, []);
 
+  const fetchLatestRecommendation = async () => {
+    setRecommendationLoading(true);
+    try {
+      const response = await api.get('/recommendations', {
+        params: { per_page: 1 }
+      });
+      
+      console.log('Recommendations Response:', response.data);
+      
+      let recommendation = null;
+      if (response.data && response.data.data) {
+        if (response.data.data.data && Array.isArray(response.data.data.data) && response.data.data.data.length > 0) {
+          recommendation = response.data.data.data[0];
+        } else if (Array.isArray(response.data.data) && response.data.data.length > 0) {
+          recommendation = response.data.data[0];
+        }
+      }
+      
+      setLatestRecommendation(recommendation);
+      console.log('Latest Recommendation:', recommendation);
+    } catch (err) {
+      console.error('Error fetching latest recommendation:', err);
+    } finally {
+      setRecommendationLoading(false);
+    }
+  };
+
   const fetchDashboardData = async () => {
-  setLoading(true);
-  try {
-    // Fetch budget summary
-    const budgetResponse = await api.get('/budgets/my-summary');
-    
-    // Fetch financial summary
-    const financialResponse = await api.get('/financial-data/my-summary');
-    
-    // Fetch recent transactions
-    const transactionsResponse = await api.get('/financial-data', {
-      params: { per_page: 6 }
-    });
-
-    console.log('Budget Response:', budgetResponse.data);
-    console.log('Financial Response:', financialResponse.data);
-
-    // Process financial data FIRST
-    let totalIncome = 0;
-    let totalExpenses = 0;
-    let balance = 0;
-
-    if (financialResponse.data && financialResponse.data.data) {
-      const financialData = financialResponse.data.data;
+    setLoading(true);
+    try {
+      // Fetch budget summary
+      const budgetResponse = await api.get('/budgets/my-summary');
       
-      // Check if summary exists
-      if (financialData.summary) {
-        // Remove any commas and parse the values
-        const incomeStr = String(financialData.summary.total_income).replace(/,/g, '');
-        const expenseStr = String(financialData.summary.total_expenses).replace(/,/g, '');
-        const balanceStr = String(financialData.summary.balance).replace(/,/g, '');
+      // Fetch financial summary
+      const financialResponse = await api.get('/financial-data/my-summary');
+      
+      // Fetch recent transactions
+      const transactionsResponse = await api.get('/financial-data', {
+        params: { per_page: 6 }
+      });
+
+      console.log('Budget Response:', budgetResponse.data);
+      console.log('Financial Response:', financialResponse.data);
+
+      // Process financial data FIRST
+      let totalIncome = 0;
+      let totalExpenses = 0;
+      let balance = 0;
+
+      if (financialResponse.data && financialResponse.data.data) {
+        const financialData = financialResponse.data.data;
         
-        totalIncome = parseFloat(incomeStr) || 0;
-        totalExpenses = parseFloat(expenseStr) || 0;
-        balance = parseFloat(balanceStr) || 0;
+        // Check if summary exists
+        if (financialData.summary) {
+          // Remove any commas and parse the values
+          const incomeStr = String(financialData.summary.total_income).replace(/,/g, '');
+          const expenseStr = String(financialData.summary.total_expenses).replace(/,/g, '');
+          const balanceStr = String(financialData.summary.balance).replace(/,/g, '');
+          
+          totalIncome = parseFloat(incomeStr) || 0;
+          totalExpenses = parseFloat(expenseStr) || 0;
+          balance = parseFloat(balanceStr) || 0;
+          
+          console.log('Parsed Financial Data:', {
+            totalIncome,
+            totalExpenses,
+            balance
+          });
+        }
+      }
+
+      // Process budget data
+      let totalBudget = 0;
+      
+      if (budgetResponse.data && budgetResponse.data.data) {
+        const budgetSummary = budgetResponse.data.data;
         
-        console.log('Parsed Financial Data:', {
-          totalIncome,
-          totalExpenses,
-          balance
-        });
+        // Get total budgeted amount
+        if (budgetSummary.total_budgets) {
+          totalBudget = parseFloat(budgetSummary.total_budgets) || 0;
+        } else if (budgetSummary.financial_summary && budgetSummary.financial_summary.total_budgeted_amount) {
+          totalBudget = parseFloat(budgetSummary.financial_summary.total_budgeted_amount) || 0;
+        }
+        
+        console.log('Total Budget:', totalBudget);
       }
-    }
 
-    // Process budget data
-    let totalBudget = 0;
-    
-    if (budgetResponse.data && budgetResponse.data.data) {
-      const budgetSummary = budgetResponse.data.data;
-      
-      // Get total budgeted amount
-      if (budgetSummary.total_budgets) {
-        totalBudget = parseFloat(budgetSummary.total_budgets) || 0;
-      } else if (budgetSummary.financial_summary && budgetSummary.financial_summary.total_budgeted_amount) {
-        totalBudget = parseFloat(budgetSummary.financial_summary.total_budgeted_amount) || 0;
+      setBudgetData({
+        totalBudget: totalBudget,
+        totalIncome: totalIncome,
+        totalExpenses: totalExpenses,
+        currentBalance: balance
+      });
+
+      // Process transactions
+      let transactionData = [];
+      if (transactionsResponse.data && transactionsResponse.data.data) {
+        if (Array.isArray(transactionsResponse.data.data.data)) {
+          transactionData = transactionsResponse.data.data.data;
+        } else if (Array.isArray(transactionsResponse.data.data)) {
+          transactionData = transactionsResponse.data.data;
+        }
       }
-      
-      console.log('Total Budget:', totalBudget);
+      setRecentTransactions(transactionData);
+
+    } catch (err) {
+      console.error('Error fetching dashboard data:', err);
+      console.error('Error details:', err.response?.data);
+    } finally {
+      setLoading(false);
     }
-
-    setBudgetData({
-      totalBudget: totalBudget,
-      totalIncome: totalIncome,
-      totalExpenses: totalExpenses,
-      currentBalance: balance
-    });
-
-    // Process transactions
-    let transactionData = [];
-    if (transactionsResponse.data && transactionsResponse.data.data) {
-      if (Array.isArray(transactionsResponse.data.data.data)) {
-        transactionData = transactionsResponse.data.data.data;
-      } else if (Array.isArray(transactionsResponse.data.data)) {
-        transactionData = transactionsResponse.data.data;
-      }
-    }
-    setRecentTransactions(transactionData);
-
-  } catch (err) {
-    console.error('Error fetching dashboard data:', err);
-    console.error('Error details:', err.response?.data);
-  } finally {
-    setLoading(false);
-  }
- };
+  };
 
   const handleLogout = async () => {
     if (isLoggingOut) return;
@@ -151,7 +183,7 @@ const StudentDashboard = () => {
     return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: '2-digit' });
   };
 
-  // Prepare data for bar chart - placed right before the return statement
+  // Prepare data for bar chart
   const chartData = [
     {
       name: 'Budget',
@@ -170,7 +202,7 @@ const StudentDashboard = () => {
     }
   ];
 
-console.log('Chart Data:', chartData); // Debug log
+  console.log('Chart Data:', chartData);
 
   return (
     <div className="student-dashboard-page">
@@ -336,14 +368,50 @@ console.log('Chart Data:', chartData); // Debug log
                 <h2 className="card-title">Your Latest Recommendation</h2>
                 <p className="card-subtitle">Fresh advice for you!</p>
                 
-                <div className="recommendation-content">
-                  <p className="recommendation-text">
-                    "Consider reviewing your monthly subscriptions. Even small savings add up over time to boost your emergency fund!"
-                  </p>
-                  <button className="recommendation-btn">
-                    View Full Recommendation
-                  </button>
-                </div>
+                {recommendationLoading ? (
+                  <div className="recommendation-content">
+                    <p className="recommendation-loading">Loading recommendation...</p>
+                  </div>
+                ) : latestRecommendation ? (
+                  <div className="recommendation-content">
+                    <div className="recommendation-meta">
+                      <span className={`recommendation-status ${latestRecommendation.status}`}>
+                        {latestRecommendation.status}
+                      </span>
+                      <span className="recommendation-category">
+                        {latestRecommendation.category}
+                      </span>
+                    </div>
+                    <p className="recommendation-text">
+                      {latestRecommendation.recomm_text?.length > 150 
+                        ? `${latestRecommendation.recomm_text.substring(0, 150)}...` 
+                        : latestRecommendation.recomm_text}
+                    </p>
+                    {latestRecommendation.confidence_score && (
+                      <p className="recommendation-confidence">
+                        Confidence: {(parseFloat(latestRecommendation.confidence_score) * 100).toFixed(1)}%
+                      </p>
+                    )}
+                    <button 
+                      className="recommendation-btn"
+                      onClick={() => navigate('/recommendations')}
+                    >
+                      View Full Recommendation
+                    </button>
+                  </div>
+                ) : (
+                  <div className="recommendation-content">
+                    <p className="recommendation-empty">
+                      No recommendations yet. Generate your first AI-powered recommendation!
+                    </p>
+                    <button 
+                      className="recommendation-btn"
+                      onClick={() => navigate('/recommendations')}
+                    >
+                      Get Your First Recommendation
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           </div>

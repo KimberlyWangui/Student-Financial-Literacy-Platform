@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\Log;
 class FinancialDataAggregator
 {
     /**
-     * Aggregate financial data for a student
+     * Aggregate financial data for a student (USES CURRENT CALENDAR MONTH)
      */
     public function aggregateStudentData($studentId)
     {
@@ -39,14 +39,35 @@ class FinancialDataAggregator
             ? Carbon::parse($student->birth_date)->age 
             : 20;
 
-        // Get ACTUAL monthly income from allowance range
-        $monthly_income = $this->getAllowanceMidpoint($student->monthly_allowance_range);
+        // CRITICAL FIX: Use CURRENT CALENDAR MONTH (matches your dashboard)
+        $startOfMonth = Carbon::now()->startOfMonth(); // 2025-11-01 00:00:00
+        $endOfMonth = Carbon::now()->endOfMonth();     // 2025-11-30 23:59:59
+        
+        Log::info("=== Student {$studentId} Data Aggregation ===");
+        Log::info("Date range: {$startOfMonth->toDateString()} to {$endOfMonth->toDateString()}");
 
-        // Aggregate expenses by category (last 30 days to match model training)
-        $expenses = $this->getExpensesByCategory($studentId, 30);
+        // Get ACTUAL monthly income from financial_data (current month)
+        $monthly_income = $this->getActualMonthlyIncome($studentId, $startOfMonth, $endOfMonth);
+        
+        // Fallback to allowance range if no income entries found
+        if ($monthly_income == 0) {
+            $monthly_income = $this->getAllowanceMidpoint($student->monthly_allowance_range);
+            Log::info("No income entries found, using allowance estimate: {$monthly_income} KES");
+        }
+
+        // Aggregate expenses by category (current month)
+        $expenses = $this->getExpensesByCategory($studentId, $startOfMonth, $endOfMonth);
 
         // Calculate total expenses
         $total_expenses = array_sum($expenses);
+        
+        // Calculate expense-to-income ratio
+        $expense_ratio = $monthly_income > 0 ? ($total_expenses / $monthly_income) : 0;
+
+        Log::info("Income: {$monthly_income} KES");
+        Log::info("Expenses: {$total_expenses} KES");
+        Log::info("Ratio: " . round($expense_ratio * 100, 2) . "%");
+        Log::info("Savings: " . ($monthly_income - $total_expenses) . " KES");
 
         // Calculate spending shares
         $shares = [];
@@ -57,7 +78,7 @@ class FinancialDataAggregator
         }
 
         // Get top spending category
-        $topCategory = $this->getTopSpendingCategory($studentId, 30);
+        $topCategory = $this->getTopSpendingCategory($studentId, $startOfMonth, $endOfMonth);
 
         // Calculate burden metrics
         $housing_burden = $monthly_income > 0 
@@ -88,6 +109,8 @@ class FinancialDataAggregator
         $discretionary_ratio = $total_expenses > 0 
             ? round($discretionary / $total_expenses, 4) 
             : 0.0;
+
+        Log::info("=== End Student {$studentId} Aggregation ===\n");
 
         return [
             'student_id' => (int)$student->student_id,
@@ -131,20 +154,31 @@ class FinancialDataAggregator
     }
 
     /**
-     * Get expenses by category - NO MAPPING NEEDED (categories match model)
+     * Get actual monthly income from financial_data (DATE RANGE)
      */
-    private function getExpensesByCategory($studentId, $days)
+    private function getActualMonthlyIncome($studentId, $startDate, $endDate)
     {
-        $cutoffDate = Carbon::now()->subDays($days);
+        $totalIncome = DB::table('financial_data')
+            ->where('student_id', $studentId)
+            ->where('entry_type', 'income')
+            ->whereBetween('entry_date', [$startDate, $endDate])
+            ->sum('amount');
 
+        return (float)$totalIncome;
+    }
+
+    /**
+     * Get expenses by category (DATE RANGE)
+     */
+    private function getExpensesByCategory($studentId, $startDate, $endDate)
+    {
         $expenses = DB::table('financial_data')
             ->where('student_id', $studentId)
             ->where('entry_type', 'expense')
-            ->where('entry_date', '>=', $cutoffDate)
+            ->whereBetween('entry_date', [$startDate, $endDate])
             ->select('category', DB::raw('SUM(amount) as total'))
             ->groupBy('category')
-            ->pluck('total', 'category')
-            ->toArray();
+            ->get();
 
         // Model's expected categories
         $categories = [
@@ -160,14 +194,13 @@ class FinancialDataAggregator
             'miscellaneous' => 0.0,
         ];
 
-        // Direct assignment (no mapping needed!)
-        foreach ($expenses as $category => $amount) {
-            if (array_key_exists($category, $categories)) {
-                $categories[$category] = (float)$amount;
+        foreach ($expenses as $expense) {
+            if (array_key_exists($expense->category, $categories)) {
+                $categories[$expense->category] = (float)$expense->total;
+                Log::info("  {$expense->category}: {$expense->total} KES");
             } else {
-                // Unknown categories go to miscellaneous
-                $categories['miscellaneous'] += (float)$amount;
-                Log::warning("Unknown category '{$category}' mapped to miscellaneous");
+                $categories['miscellaneous'] += (float)$expense->total;
+                Log::warning("  Unknown '{$expense->category}': {$expense->total} KES → miscellaneous");
             }
         }
 
@@ -175,24 +208,26 @@ class FinancialDataAggregator
     }
 
     /**
-     * Get top spending category
+     * Get top spending category (DATE RANGE)
      */
-    private function getTopSpendingCategory($studentId, $days)
+    private function getTopSpendingCategory($studentId, $startDate, $endDate)
     {
-        $cutoffDate = Carbon::now()->subDays($days);
-
         $topCategory = DB::table('financial_data')
             ->where('student_id', $studentId)
             ->where('entry_type', 'expense')
-            ->where('entry_date', '>=', $cutoffDate)
+            ->whereBetween('entry_date', [$startDate, $endDate])
             ->select('category', DB::raw('SUM(amount) as total_amount'))
             ->groupBy('category')
             ->orderBy('total_amount', 'DESC')
             ->first();
 
+        if (!$topCategory) {
+            return ['category' => 'miscellaneous', 'amount' => 0.0];
+        }
+
         return [
-            'category' => $topCategory ? $topCategory->category : 'miscellaneous',
-            'amount' => $topCategory ? (float)$topCategory->total_amount : 0.0,
+            'category' => $topCategory->category,
+            'amount' => (float)$topCategory->total_amount,
         ];
     }
 
@@ -208,26 +243,24 @@ class FinancialDataAggregator
             ->orderBy('count', 'DESC')
             ->first();
 
-        if (!$method) {
+        if (!$method || !$method->payment_method) {
             return 'Cash';
         }
 
-        // Simple normalization
-        $normalized = ucfirst(strtolower(trim($method->payment_method)));
+        $normalized = strtolower(trim($method->payment_method));
         
         $paymentMap = [
-            'Cash' => 'Cash',
-            'Card' => 'Card',
-            'M-pesa' => 'M-Pesa',
-            'Mpesa' => 'M-Pesa',
-            'Mobile money' => 'M-Pesa',
+            'cash' => 'Cash',
+            'card' => 'Card',
+            'm-pesa' => 'M-Pesa',
+            'mpesa' => 'M-Pesa',
         ];
 
         return $paymentMap[$normalized] ?? 'Cash';
     }
 
     /**
-     * Get allowance midpoint
+     * Get allowance midpoint (FALLBACK)
      */
     private function getAllowanceMidpoint($range)
     {
@@ -273,7 +306,7 @@ class FinancialDataAggregator
             try {
                 $allData[] = $this->aggregateStudentData($studentId);
             } catch (\Exception $e) {
-                Log::warning("Failed to aggregate for student {$studentId}: {$e->getMessage()}");
+                Log::warning("Failed for student {$studentId}: {$e->getMessage()}");
             }
         }
 

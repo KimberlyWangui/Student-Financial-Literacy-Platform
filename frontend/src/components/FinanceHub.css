@@ -220,25 +220,39 @@
   min-height: 80px;
 }
 
-/* Amount Input with Currency Symbol */
+/* Amount Input with Currency Badge */
 .amount-input {
   position: relative;
   display: flex;
-  align-items: center;
+  align-items: stretch;
 }
 
 .currency-symbol {
-  position: absolute;
-  left: 16px;
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+  background: linear-gradient(135deg, #4c6ef5 0%, #3b5bdb 100%);
+  color: white;
   font-size: 14px;
-  font-weight: 600;
-  color: #6b7280;
-  pointer-events: none;
+  font-weight: 700;
+  border-radius: 8px 0 0 8px;
+  border: 1px solid #4c6ef5;
+  border-right: none;
+  user-select: none;
 }
 
 .amount-input input {
-  padding-left: 50px;
-  width: 100%;
+  flex: 1;
+  padding-left: 16px !important;
+  border-radius: 0 8px 8px 0 !important;
+  border-left: none !important;
+}
+
+.amount-input input:focus {
+  border-color: #4c6ef5;
+  box-shadow: 0 0 0 3px rgba(76, 110, 245, 0.1);
+  position: relative;
+  z-index: 1;
 }
 
 /* Submit Button */
