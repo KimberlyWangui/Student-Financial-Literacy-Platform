@@ -393,3 +393,99 @@
     grid-template-columns: 1fr;
   }
 }
+/* Recommendation Card Enhancements */
+.recommendation-meta {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.recommendation-status {
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.recommendation-status.pending {
+  background-color: #fef3c7;
+  color: #92400e;
+}
+
+.recommendation-status.viewed {
+  background-color: #dbeafe;
+  color: #1e40af;
+}
+
+.recommendation-status.accepted {
+  background-color: #d1fae5;
+  color: #065f46;
+}
+
+.recommendation-status.rejected {
+  background-color: #fee2e2;
+  color: #991b1b;
+}
+
+.recommendation-status.ignored {
+  background-color: #f3f4f6;
+  color: #374151;
+}
+
+.recommendation-category {
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  background-color: rgba(76, 110, 245, 0.1);
+  color: #4c6ef5;
+}
+
+.recommendation-confidence {
+  font-size: 12px;
+  color: #1e40af;
+  font-weight: 600;
+  margin-bottom: 12px;
+}
+
+.recommendation-loading,
+.recommendation-empty {
+  font-size: 14px;
+  color: #6b7280;
+  text-align: center;
+  padding: 20px;
+  font-style: italic;
+}
+
+.recommendation-empty {
+  margin-bottom: 16px;
+}
+
+/* Update existing recommendation-text */
+.recommendation-text {
+  font-size: 14px;
+  color: #1e40af;
+  line-height: 1.6;
+  margin-bottom: 16px;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .recommendation-meta {
+    flex-direction: column;
+    gap: 8px;
+  }
+  
+  .recommendation-status,
+  .recommendation-category {
+    display: inline-block;
+    width: fit-content;
+  }
+}

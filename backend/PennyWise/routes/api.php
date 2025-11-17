@@ -228,19 +228,33 @@ Route::middleware('auth:sanctum')->group(function () {
     // ============================================
     // AI PREDICTION & RECOMMENDATIONS ROUTES
     // ============================================
-    // Admin-only routes for AI operations
+
+    // Check if student can generate a recommendation - Must come before other routes
+    Route::get('ai/can-generate', [AIController::class, 'canGenerateRecommendation']);
+
+    // Preview my aggregated data - Must come before other routes  
+    Route::get('ai/preview/me', [AIController::class, 'previewMyData']);
+
+    // Students generate their own AI recommendation
+    Route::post('ai/predict/me', [AIController::class, 'generateMyRecommendation'])
+        ->middleware('throttle:5,1440'); // Max 5 attempts per 24 hours
+
+    // ADMIN-ONLY ROUTES
     Route::middleware('admin')->group(function () {
-        // Health check for Flask API
+        // Get AI health check - available to all authenticated users
         Route::get('ai/health', [AIController::class, 'checkApiHealth']);
-        
-        // Generate predictions for ALL students (manual trigger)
+
+        // Generate predictions for ALL students (batch processing - also used by cron)
         Route::post('ai/predict/batch', [AIController::class, 'generatePredictionsForAllStudents']);
-        
-        // Generate prediction for a single student (manual trigger)
+
+        // Generate prediction for any specific student
         Route::post('ai/predict/student/{studentId}', [AIController::class, 'generatePredictionForStudent']);
-        
-        // Preview aggregated data for debugging
+
+        // Preview any student's aggregated data (debugging)
         Route::get('ai/preview/student/{studentId}', [AIController::class, 'previewStudentData']);
+
+        // Get all recommendations for any student
+        Route::get('ai/recommendations/student/{studentId}', [AIController::class, 'getStudentRecommendations']);
     });
 
     // ============================================

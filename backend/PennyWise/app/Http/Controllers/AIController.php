@@ -8,6 +8,7 @@ use GuzzleHttp\Exception\GuzzleException;
 use App\Models\Recommendation;
 use App\Services\FinancialDataAggregator;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Auth;
 
 class AIController extends Controller
 {
@@ -19,9 +20,145 @@ class AIController extends Controller
         $this->flaskApiUrl = env('FLASK_API_URL', 'http://127.0.0.1:5000');
         $this->aggregator = $aggregator;
     }
+    /**
+     * Generate AI recommendation for authenticated student
+     * Accessible by: Students only
+     */
+    public function generateMyRecommendation(Request $request)
+    {
+        $user = Auth::user();
+        
+        // Ensure user is a student
+        if ($user->role !== 'student') {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Only students can generate personal recommendations'
+            ], 403);
+        }
+
+        // RATE LIMITING: Check if student already has a recent AI recommendation (last 24 hours)
+        $recentAiRecommendation = Recommendation::where('student_id', $user->id)
+            ->where('source_type', 'AI_Model')
+            ->where('created_at', '>=', now()->subHours(24))
+            ->latest()
+            ->first();
+
+        if ($recentAiRecommendation) {
+            return response()->json([
+                'status' => 'rate_limited',
+                'message' => 'You already have a recent AI recommendation. Please wait 24 hours before generating a new one.',
+                'next_available_at' => $recentAiRecommendation->created_at->addHours(24)->toDateTimeString(),
+                'latest_recommendation' => $recentAiRecommendation
+            ], 429); // 429 Too Many Requests
+        }
+
+        // Generate AI prediction for the authenticated student
+        return $this->generatePredictionForStudent($user->id);
+    }
 
     /**
-     * Generate prediction for a single student (auto-fetches data from DB)
+     * Preview authenticated student's aggregated data
+     * Accessible by: Students only (for transparency)
+     */
+    public function previewMyData(Request $request)
+    {
+        $user = Auth::user();
+        
+        if ($user->role !== 'student') {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Only students can view their data'
+            ], 403);
+        }
+
+        try {
+            $studentData = $this->aggregator->aggregateStudentData($user->id);
+            
+            return response()->json([
+                'status' => 'success',
+                'message' => 'This is the data our AI uses to generate your recommendations',
+                'data' => $studentData,
+                'explanation' => [
+                    'monthly_income' => 'Your estimated monthly allowance (midpoint of your range)',
+                    'total_expenses' => 'Total spending in the last 30 days',
+                    'housing_burden' => 'Housing cost as percentage of income',
+                    'education_burden' => 'Tuition cost as percentage of income',
+                    'top_spending_category' => 'Your highest expense category',
+                    'spending_concentration' => 'How focused your spending is (0-1)',
+                    'confidence_note' => 'AI confidence improves with more transaction history across multiple categories'
+                ]
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => $e->getMessage()
+            ], 404);
+        }
+    }
+
+    /**
+     * Check if student can generate a new AI recommendation
+     * Accessible by: Students only
+     */
+    public function canGenerateRecommendation(Request $request)
+    {
+        try {
+            $user = Auth::user();
+            
+            if (!$user) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'User not authenticated'
+                ], 401);
+            }
+            
+            if ($user->role !== 'student') {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Only students can check recommendation availability'
+                ], 403);
+            }
+
+            $recentAiRecommendation = Recommendation::where('student_id', $user->id)
+                ->where('source_type', 'AI_Model')
+                ->where('created_at', '>=', now()->subHours(24))
+                ->latest()
+                ->first();
+
+            if ($recentAiRecommendation) {
+                $nextAvailable = $recentAiRecommendation->created_at->copy()->addHours(24);
+                $hoursRemaining = max(0, round($nextAvailable->diffInMinutes(now()) / 60, 1));
+                
+                return response()->json([
+                    'status' => 'success',
+                    'can_generate' => false,
+                    'reason' => 'Recent recommendation exists',
+                    'next_available_at' => $nextAvailable->toDateTimeString(),
+                    'hours_remaining' => $hoursRemaining
+                ], 200);
+            }
+
+            return response()->json([
+                'status' => 'success',
+                'can_generate' => true,
+                'message' => 'You can generate a new AI recommendation'
+            ], 200);
+            
+        } catch (\Exception $e) {
+            Log::error('Error in canGenerateRecommendation: ' . $e->getMessage());
+            Log::error('Stack trace: ' . $e->getTraceAsString());
+            
+            return response()->json([
+                'status' => 'error',
+                'message' => 'An error occurred while checking generation status',
+                'details' => config('app.debug') ? $e->getMessage() : 'Internal server error'
+            ], 500);
+        }
+    }
+
+    /**
+     * Generate prediction for a single student (INTERNAL USE & ADMIN)
+     * Called by: generateMyRecommendation(), admin routes, cron job
      */
     public function generatePredictionForStudent($studentId)
     {
@@ -62,13 +199,12 @@ class AIController extends Controller
 
                 return response()->json([
                     'status' => 'success',
-                    'message' => 'Prediction generated and recommendation stored successfully',
+                    'message' => 'AI recommendation generated and stored successfully',
                     'data' => [
                         'predicted_label' => $data['predicted_label'],
                         'confidence' => $data['confidence'],
                         'recommendation_id' => $recommendation->recommendation_id,
-                        'recommendation' => $recommendation,
-                        'student_data' => $studentData // For debugging
+                        'recommendation' => $recommendation
                     ]
                 ], 201);
             }
@@ -94,6 +230,7 @@ class AIController extends Controller
 
     /**
      * Generate predictions for ALL students (batch processing)
+     * Accessible by: Admin, Cron job
      */
     public function generatePredictionsForAllStudents()
     {
@@ -180,7 +317,7 @@ class AIController extends Controller
     }
 
     /**
-     * Preview aggregated data for a student (for testing/debugging)
+     * Preview aggregated data for a student (ADMIN ONLY - for debugging)
      */
     public function previewStudentData($studentId)
     {
@@ -200,7 +337,7 @@ class AIController extends Controller
     }
 
     /**
-     * Get all recommendations for a student
+     * Get all recommendations for a student (ADMIN ONLY)
      */
     public function getStudentRecommendations($studentId)
     {
@@ -215,27 +352,7 @@ class AIController extends Controller
     }
 
     /**
-     * Update recommendation status
-     */
-    public function updateRecommendationStatus(Request $request, $recommendationId)
-    {
-        $validated = $request->validate([
-            'status' => 'required|in:pending,viewed,accepted,rejected,ignored',
-            'feedback' => 'nullable|string'
-        ]);
-
-        $recommendation = Recommendation::findOrFail($recommendationId);
-        $recommendation->update($validated);
-
-        return response()->json([
-            'status' => 'success',
-            'message' => 'Recommendation status updated',
-            'data' => $recommendation
-        ]);
-    }
-
-    /**
-     * Check Flask API health
+     * Check Flask API health (ADMIN ONLY)
      */
     public function checkApiHealth()
     {
