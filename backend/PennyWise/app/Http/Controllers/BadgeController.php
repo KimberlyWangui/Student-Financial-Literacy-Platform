@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 
 class BadgeController extends Controller
 {
@@ -29,8 +30,18 @@ class BadgeController extends Controller
             });
         }
 
-        // Sort by created_at descending (most recent first)
-        $query->orderBy('created_at', 'desc');
+        // Optional criteria type filter
+        if ($request->has('criteria_type')) {
+            $query->where('criteria_type', $request->criteria_type);
+        }
+
+        // Sort by XP reward or created_at
+        $sortBy = $request->get('sort_by', 'created_at');
+        $sortOrder = $request->get('sort_order', 'desc');
+        
+        if (in_array($sortBy, ['xp_reward', 'criteria_value', 'created_at'])) {
+            $query->orderBy($sortBy, $sortOrder);
+        }
 
         $badges = $query->paginate($request->get('per_page', 15));
 
@@ -59,7 +70,12 @@ class BadgeController extends Controller
         $validated = $request->validate([
             'badge_name' => 'required|string|max:255|unique:badges,badge_name',
             'description' => 'required|string',
-            'criteria' => 'required|string',
+            'criteria_type' => [
+                'required',
+                Rule::in(Badge::getCriteriaTypes())
+            ],
+            'criteria_value' => 'required|integer|min:1',
+            'xp_reward' => 'required|integer|min:0',
             'image' => 'nullable|image|mimes:png,jpg,jpeg,svg|max:2048', // Max 2MB
         ]);
 
@@ -78,7 +94,9 @@ class BadgeController extends Controller
         $badge = Badge::create([
             'badge_name' => $validated['badge_name'],
             'description' => $validated['description'],
-            'criteria' => $validated['criteria'],
+            'criteria_type' => $validated['criteria_type'],
+            'criteria_value' => $validated['criteria_value'],
+            'xp_reward' => $validated['xp_reward'],
             'image_url' => $imageUrl,
         ]);
 
@@ -107,7 +125,8 @@ class BadgeController extends Controller
         if (Auth::user()->role === 'admin') {
             $badge->load(['students' => function ($query) {
                 $query->select('users.id', 'users.name', 'users.email')
-                      ->withPivot('earned_at');
+                      ->withPivot('earned_at', 'xp_earned')
+                      ->orderByPivot('earned_at', 'desc');
             }]);
         }
 
@@ -145,7 +164,12 @@ class BadgeController extends Controller
         $validated = $request->validate([
             'badge_name' => 'sometimes|string|max:255|unique:badges,badge_name,' . $id . ',badge_id',
             'description' => 'sometimes|string',
-            'criteria' => 'sometimes|string',
+            'criteria_type' => [
+                'sometimes',
+                Rule::in(Badge::getCriteriaTypes())
+            ],
+            'criteria_value' => 'sometimes|integer|min:1',
+            'xp_reward' => 'sometimes|integer|min:0',
             'image' => 'nullable|image|mimes:png,jpg,jpeg,svg|max:2048',
         ]);
 
@@ -226,6 +250,7 @@ class BadgeController extends Controller
 
         $totalBadges = Badge::count();
         $totalAwarded = DB::table('student_badges')->count();
+        $totalXpAwarded = DB::table('student_badges')->sum('xp_earned');
         
         // Get most earned badges
         $mostEarnedBadges = Badge::withCount('students')
@@ -233,13 +258,38 @@ class BadgeController extends Controller
             ->take(5)
             ->get();
 
+        // Get highest XP badges
+        $highestXpBadges = Badge::orderBy('xp_reward', 'desc')
+            ->take(5)
+            ->get();
+
+        // Badge distribution by criteria type
+        $badgesByCriteria = Badge::select('criteria_type', DB::raw('count(*) as count'))
+            ->groupBy('criteria_type')
+            ->get();
+
         return response()->json([
             'message' => 'Badge statistics retrieved successfully',
             'data' => [
                 'total_badges' => $totalBadges,
                 'total_awarded' => $totalAwarded,
-                'most_earned_badges' => $mostEarnedBadges
+                'total_xp_awarded' => $totalXpAwarded,
+                'most_earned_badges' => $mostEarnedBadges,
+                'highest_xp_badges' => $highestXpBadges,
+                'badges_by_criteria' => $badgesByCriteria
             ]
+        ], 200);
+    }
+
+    /**
+     * Get available badge criteria types.
+     * Accessible by: All authenticated users
+     */
+    public function criteriaTypes()
+    {
+        return response()->json([
+            'message' => 'Criteria types retrieved successfully',
+            'data' => Badge::getCriteriaTypes()
         ], 200);
     }
 }

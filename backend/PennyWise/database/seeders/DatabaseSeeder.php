@@ -17,6 +17,7 @@ class DatabaseSeeder extends Seeder
             FinancialDataSeeder::class,
             BudgetSeeder::class,
             GoalSeeder::class,
+            BadgeSeeder::class,
         ]);
 
         $this->command->newLine();

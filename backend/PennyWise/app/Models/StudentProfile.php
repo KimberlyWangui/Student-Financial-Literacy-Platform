@@ -6,6 +6,41 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Carbon\Carbon;
 
+/**
+ * @property int $profile_id
+ * @property int $student_id
+ * @property string|null $year_of_study
+ * @property string|null $living_situation
+ * @property string|null $monthly_allowance_range
+ * @property string|null $course
+ * @property \Illuminate\Support\Carbon|null $birth_date
+ * @property string|null $gender
+ * @property int $xp_total Total XP points earned by the student
+ * @property \Illuminate\Support\Carbon|null $created_at
+ * @property \Illuminate\Support\Carbon|null $updated_at
+ * @property-read int|null $age
+ * @property-read string|null $formatted_birth_date
+ * @property-read bool|null $is_adult
+ * @property-read int $xp_level
+ * @property-read int $xp_needed
+ * @property-read int $xp_progress
+ * @property-read \App\Models\User $student
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|StudentProfile newModelQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|StudentProfile newQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|StudentProfile query()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|StudentProfile whereBirthDate($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|StudentProfile whereCourse($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|StudentProfile whereCreatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|StudentProfile whereGender($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|StudentProfile whereLivingSituation($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|StudentProfile whereMonthlyAllowanceRange($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|StudentProfile whereProfileId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|StudentProfile whereStudentId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|StudentProfile whereUpdatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|StudentProfile whereXpTotal($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|StudentProfile whereYearOfStudy($value)
+ * @mixin \Eloquent
+ */
 class StudentProfile extends Model
 {
     use HasFactory;
@@ -30,6 +65,7 @@ class StudentProfile extends Model
         'course',
         'birth_date',
         'gender',
+        'xp_total',
     ];
 
     /**
@@ -39,6 +75,7 @@ class StudentProfile extends Model
      */
     protected $casts = [
         'birth_date' => 'date',
+        'xp_total' => 'integer',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
     ];
@@ -91,6 +128,49 @@ class StudentProfile extends Model
         }
 
         return $this->age >= 18;
+    }
+
+    /**
+     * Get the XP level based on total XP.
+     *
+     * @return int
+     */
+    public function getXpLevelAttribute(): int
+    {
+        // Level calculation: Every 100 XP = 1 level
+        return (int) floor($this->xp_total / 100) + 1;
+    }
+
+    /**
+     * Get XP progress to next level.
+     *
+     * @return int
+     */
+    public function getXpProgressAttribute(): int
+    {
+        return $this->xp_total % 100;
+    }
+
+    /**
+     * Get XP needed for next level.
+     *
+     * @return int
+     */
+    public function getXpNeededAttribute(): int
+    {
+        return 100 - $this->xp_progress;
+    }
+
+    /**
+     * Add XP to the student profile.
+     *
+     * @param int $xp
+     * @return void
+     */
+    public function addXp(int $xp): void
+    {
+        $this->xp_total += $xp;
+        $this->save();
     }
 
     /**
@@ -163,6 +243,9 @@ class StudentProfile extends Model
     protected $appends = [
         'age',
         'formatted_birth_date',
-        'is_adult'
+        'is_adult',
+        'xp_level',
+        'xp_progress',
+        'xp_needed'
     ];
 }

@@ -5,6 +5,33 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
+/**
+ * @property int $simulation_id
+ * @property int $student_id
+ * @property numeric $principal
+ * @property numeric $interest_rate
+ * @property int $time_period
+ * @property numeric $result
+ * @property \Illuminate\Support\Carbon|null $created_at
+ * @property \Illuminate\Support\Carbon|null $updated_at
+ * @property-read float $interest_earned
+ * @property-read float $roi_percentage
+ * @property-read \App\Models\User $student
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Simulation forStudent($studentId)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Simulation newModelQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Simulation newQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Simulation query()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Simulation recent()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Simulation whereCreatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Simulation whereInterestRate($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Simulation wherePrincipal($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Simulation whereResult($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Simulation whereSimulationId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Simulation whereStudentId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Simulation whereTimePeriod($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Simulation whereUpdatedAt($value)
+ * @mixin \Eloquent
+ */
 class Simulation extends Model
 {
     use HasFactory;

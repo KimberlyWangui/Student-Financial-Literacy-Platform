@@ -6,6 +6,48 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Carbon\Carbon;
 
+/**
+ * @property int $budget_id
+ * @property int $student_id
+ * @property string $category
+ * @property numeric $amount
+ * @property numeric $actual_spent actual spent against this budget period
+ * @property string $status
+ * @property \Illuminate\Support\Carbon $start_date
+ * @property \Illuminate\Support\Carbon $end_date
+ * @property \Illuminate\Support\Carbon|null $created_at
+ * @property \Illuminate\Support\Carbon|null $updated_at
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\FinancialData> $expenses
+ * @property-read int|null $expenses_count
+ * @property-read int $days_remaining
+ * @property-read mixed $id
+ * @property-read bool $is_active
+ * @property-read bool $is_exceeded
+ * @property-read bool $is_expired
+ * @property-read float $remaining_budget
+ * @property-read float $total_spent
+ * @property-read float $usage_percentage
+ * @property-read \App\Models\User $student
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Budget active()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Budget byStatus($status)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Budget expired()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Budget forStudent($studentId)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Budget newModelQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Budget newQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Budget query()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Budget upcoming()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Budget whereActualSpent($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Budget whereAmount($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Budget whereBudgetId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Budget whereCategory($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Budget whereCreatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Budget whereEndDate($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Budget whereStartDate($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Budget whereStatus($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Budget whereStudentId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Budget whereUpdatedAt($value)
+ * @mixin \Eloquent
+ */
 class Budget extends Model
 {
     use HasFactory;
