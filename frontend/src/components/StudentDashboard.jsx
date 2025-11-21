@@ -36,15 +36,49 @@ const StudentDashboard = () => {
   const [latestRecommendation, setLatestRecommendation] = useState(null);
   const [recommendationLoading, setRecommendationLoading] = useState(true);
 
-  const financialGoals = [
-    { name: 'Emergency Fund', progress: 57, current: 850, target: 1500 },
-    { name: 'New Laptop', progress: 30, current: 300, target: 1000 }
-  ];
+  // State for financial goals
+  const [financialGoals, setFinancialGoals] = useState([]);
+  const [goalsLoading, setGoalsLoading] = useState(true);
 
   useEffect(() => {
     fetchDashboardData();
     fetchLatestRecommendation();
+    fetchFinancialGoals();
   }, []);
+
+  const fetchFinancialGoals = async () => {
+  setGoalsLoading(true);
+  try {
+    const response = await api.get('/goals', {
+      params: { 
+        per_page: 3,
+        status: 'in-progress' // Filter for in-progress goals in the backend
+      }
+    });
+    
+    console.log('Goals Response:', response.data);
+    
+    let goalsData = [];
+    if (response.data && response.data.data) {
+      if (Array.isArray(response.data.data.data)) {
+        goalsData = response.data.data.data;
+      } else if (Array.isArray(response.data.data)) {
+        goalsData = response.data.data;
+      }
+    }
+    
+    // Limit to 3 goals (already filtered by backend)
+    const activeGoals = goalsData.slice(0, 3);
+    
+    console.log('Active Goals:', activeGoals);
+    setFinancialGoals(activeGoals);
+  } catch (err) {
+    console.error('Error fetching financial goals:', err);
+    setFinancialGoals([]);
+  } finally {
+    setGoalsLoading(false);
+  }
+};
 
   const fetchLatestRecommendation = async () => {
     setRecommendationLoading(true);
@@ -181,6 +215,11 @@ const StudentDashboard = () => {
   const formatDate = (dateString) => {
     const date = new Date(dateString);
     return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: '2-digit' });
+  };
+
+  const calculateProgress = (current, target) => {
+    if (target === 0) return 0;
+    return Math.min((current / target) * 100, 100);
   };
 
   // Prepare data for bar chart
@@ -344,23 +383,65 @@ const StudentDashboard = () => {
 
               {/* Financial Goals */}
               <div className="dashboard-card">
-                <h2 className="card-title">Financial Goals</h2>
-                <p className="card-subtitle">Keep tracking your progress!</p>
-                
-                <div className="goals-list">
-                  {financialGoals.map((goal, index) => (
-                    <div key={index} className="goal-item">
-                      <div className="goal-header">
-                        <span className="goal-name">{goal.name}</span>
-                        <span className="goal-percentage">{goal.progress}%</span>
-                      </div>
-                      <div className="progress-bar">
-                        <div className="progress-fill" style={{ width: `${goal.progress}%` }}></div>
-                      </div>
-                      <p className="goal-amount">KES {goal.current} of KES {goal.target}</p>
-                    </div>
-                  ))}
+                <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div>
+                    <h2 className="card-title">Financial Goals</h2>
+                    <p className="card-subtitle">Keep tracking your progress!</p>
+                  </div>
+                  <button 
+                    className="view-all-btn"
+                    onClick={() => navigate('/goals')}
+                    style={{
+                      padding: '8px 16px',
+                      background: '#f0f4ff',
+                      color: '#4c6ef5',
+                      border: 'none',
+                      borderRadius: '6px',
+                      fontSize: '13px',
+                      fontWeight: '600',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    View All
+                  </button>
                 </div>
+                
+                {goalsLoading ? (
+                  <div className="loading-state" style={{ padding: '20px' }}>Loading goals...</div>
+                ) : financialGoals.length === 0 ? (
+                  <div className="empty-state" style={{ padding: '20px' }}>
+                    <p style={{ fontSize: '14px', color: '#6b7280', marginBottom: '12px' }}>
+                      No active goals yet. Set your first financial goal!
+                    </p>
+                    <button 
+                      className="action-btn primary"
+                      onClick={() => navigate('/goals')}
+                      style={{ fontSize: '14px', padding: '10px 16px' }}
+                    >
+                      Create Goal
+                    </button>
+                  </div>
+                ) : (
+                  <div className="goals-list">
+                    {financialGoals.map((goal) => {
+                      const progress = calculateProgress(goal.current_amount, goal.target_amount);
+                      return (
+                        <div key={goal.id} className="goal-item">
+                          <div className="goal-header">
+                            <span className="goal-name">{goal.goal_name}</span>
+                            <span className="goal-percentage">{progress.toFixed(1)}%</span>
+                          </div>
+                          <div className="progress-bar">
+                            <div className="progress-fill" style={{ width: `${progress}%` }}></div>
+                          </div>
+                          <p className="goal-amount">
+                            KES {parseFloat(goal.current_amount).toLocaleString()} of KES {parseFloat(goal.target_amount).toLocaleString()}
+                          </p>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
 
               {/* Latest Recommendation */}

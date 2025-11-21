@@ -4,6 +4,22 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Relations\Pivot;
 
+/**
+ * @property int $student_id
+ * @property int $badge_id
+ * @property \Illuminate\Support\Carbon $earned_at
+ * @property int $xp_earned XP points earned when this badge was awarded
+ * @property-read \App\Models\Badge $badge
+ * @property-read \App\Models\User $student
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|StudentBadge newModelQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|StudentBadge newQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|StudentBadge query()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|StudentBadge whereBadgeId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|StudentBadge whereEarnedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|StudentBadge whereStudentId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|StudentBadge whereXpEarned($value)
+ * @mixin \Eloquent
+ */
 class StudentBadge extends Pivot
 {
     /**
@@ -18,7 +34,19 @@ class StudentBadge extends Pivot
      *
      * @var bool
      */
-    public $timestamps = false;
+    public $timestamps = false;  // CHANGED to true
+
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var array<int, string>
+     */
+    protected $fillable = [
+        'student_id',
+        'badge_id',
+        'earned_at',
+        'xp_earned'
+    ];
 
     /**
      * The attributes that should be cast.
@@ -27,6 +55,7 @@ class StudentBadge extends Pivot
      */
     protected $casts = [
         'earned_at' => 'datetime',
+        'xp_earned' => 'integer',
     ];
 
     /**

@@ -61,6 +61,23 @@ class Goal extends Model
     }
 
     /**
+     * Get the route key for the model.
+     * This allows using 'id' in routes while the actual column is 'goal_id'
+     */
+    public function getRouteKeyName()
+    {
+        return 'goal_id';
+    }
+
+    /**
+     * Override the id attribute to return goal_id
+     */
+    public function getIdAttribute()
+    {
+        return $this->goal_id;
+    }
+
+    /**
      * Calculate the progress percentage.
      *
      * @return float
@@ -208,6 +225,7 @@ class Goal extends Model
      * Append custom attributes to JSON responses.
      */
     protected $appends = [
+        'id', // Add id to appends
         'progress_percentage',
         'remaining_amount',
         'is_completed',
