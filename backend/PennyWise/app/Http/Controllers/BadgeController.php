@@ -264,7 +264,7 @@ class BadgeController extends Controller
             ->get();
 
         // Badge distribution by criteria type
-        $badgesByCriteria = Badge::select('criteria_type', DB::raw('count(*) as count'))
+        $badgesByCriteria = Badge::select(['criteria_type', DB::raw('count(*) as count')])
             ->groupBy('criteria_type')
             ->get();
 

@@ -6,43 +6,6 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Carbon\Carbon;
 
-/**
- * @property int $goal_id
- * @property int $student_id
- * @property string $goal_name
- * @property numeric $target_amount
- * @property string $goal_type
- * @property string $status
- * @property numeric $current_amount
- * @property \Illuminate\Support\Carbon $deadline
- * @property \Illuminate\Support\Carbon|null $created_at
- * @property \Illuminate\Support\Carbon|null $updated_at
- * @property-read bool $is_completed
- * @property-read bool $is_overdue
- * @property-read float $progress_percentage
- * @property-read float $remaining_amount
- * @property-read \App\Models\User $student
- * @method static \Illuminate\Database\Eloquent\Builder<static>|Goal active()
- * @method static \Illuminate\Database\Eloquent\Builder<static>|Goal byStatus($status)
- * @method static \Illuminate\Database\Eloquent\Builder<static>|Goal byType($type)
- * @method static \Illuminate\Database\Eloquent\Builder<static>|Goal completed()
- * @method static \Illuminate\Database\Eloquent\Builder<static>|Goal forStudent($studentId)
- * @method static \Illuminate\Database\Eloquent\Builder<static>|Goal missed()
- * @method static \Illuminate\Database\Eloquent\Builder<static>|Goal newModelQuery()
- * @method static \Illuminate\Database\Eloquent\Builder<static>|Goal newQuery()
- * @method static \Illuminate\Database\Eloquent\Builder<static>|Goal query()
- * @method static \Illuminate\Database\Eloquent\Builder<static>|Goal whereCreatedAt($value)
- * @method static \Illuminate\Database\Eloquent\Builder<static>|Goal whereCurrentAmount($value)
- * @method static \Illuminate\Database\Eloquent\Builder<static>|Goal whereDeadline($value)
- * @method static \Illuminate\Database\Eloquent\Builder<static>|Goal whereGoalId($value)
- * @method static \Illuminate\Database\Eloquent\Builder<static>|Goal whereGoalName($value)
- * @method static \Illuminate\Database\Eloquent\Builder<static>|Goal whereGoalType($value)
- * @method static \Illuminate\Database\Eloquent\Builder<static>|Goal whereStatus($value)
- * @method static \Illuminate\Database\Eloquent\Builder<static>|Goal whereStudentId($value)
- * @method static \Illuminate\Database\Eloquent\Builder<static>|Goal whereTargetAmount($value)
- * @method static \Illuminate\Database\Eloquent\Builder<static>|Goal whereUpdatedAt($value)
- * @mixin \Eloquent
- */
 class Goal extends Model
 {
     use HasFactory;
@@ -95,6 +58,23 @@ class Goal extends Model
     public function student()
     {
         return $this->belongsTo(User::class, 'student_id');
+    }
+
+    /**
+     * Get the route key for the model.
+     * This allows using 'id' in routes while the actual column is 'goal_id'
+     */
+    public function getRouteKeyName()
+    {
+        return 'goal_id';
+    }
+
+    /**
+     * Override the id attribute to return goal_id
+     */
+    public function getIdAttribute()
+    {
+        return $this->goal_id;
     }
 
     /**
@@ -245,6 +225,7 @@ class Goal extends Model
      * Append custom attributes to JSON responses.
      */
     protected $appends = [
+        'id', // Add id to appends
         'progress_percentage',
         'remaining_amount',
         'is_completed',

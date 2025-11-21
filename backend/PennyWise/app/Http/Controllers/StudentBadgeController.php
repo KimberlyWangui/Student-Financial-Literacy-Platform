@@ -86,18 +86,34 @@ class StudentBadgeController extends Controller
             ], 403);
         }
 
+        // Get badges with all necessary fields
         $badges = $currentUser->badges()
             ->orderByPivot('earned_at', 'desc')
-            ->get();
+            ->get()
+            ->map(function ($badge) {
+                return [
+                    'badge_id' => $badge->badge_id,
+                    'badge_name' => $badge->badge_name,
+                    'description' => $badge->description,
+                    'criteria_type' => $badge->criteria_type,
+                    'criteria_value' => $badge->criteria_value,
+                    'xp_reward' => $badge->xp_reward,
+                    'image_url' => $badge->image_url,
+                    'image_url_full' => $badge->image_url_full,
+                    'earned_at' => $badge->pivot->earned_at,
+                    'xp_earned' => $badge->pivot->xp_earned,
+                    'criteria_description' => $badge->criteria_description,
+                ];
+            });
 
         $profile = $currentUser->studentProfile;
 
         return response()->json([
             'message' => 'Your badges retrieved successfully',
-            'data' => [
-                'badges' => $badges,
+            'data' => $badges,
+            'summary' => [
                 'total_badges' => $badges->count(),
-                'total_xp_from_badges' => $badges->sum('pivot.xp_earned'),
+                'total_xp_from_badges' => $badges->sum('xp_earned'),
                 'xp_info' => [
                     'total_xp' => $profile ? $profile->xp_total : 0,
                     'level' => $profile ? $profile->xp_level : 0,
@@ -152,6 +168,7 @@ class StudentBadgeController extends Controller
             return response()->json([
                 'message' => 'No new badges earned at this time.',
                 'data' => [
+                    'newly_earned' => [],
                     'new_badges' => [],
                     'total_new_badges' => 0,
                     'total_xp_earned' => 0
@@ -164,6 +181,7 @@ class StudentBadgeController extends Controller
         return response()->json([
             'message' => 'Congratulations! You earned new badges!',
             'data' => [
+                'newly_earned' => $newBadges,
                 'new_badges' => $newBadges,
                 'total_new_badges' => $newBadges->count(),
                 'total_xp_earned' => $totalXp
