@@ -566,16 +566,20 @@ const FinanceHub = () => {
                       <div className="amount-input">
                         <span className="currency-symbol">KES</span>
                         <input
-                          type="number"
+                          type="text"
+                          inputMode="decimal"
                           id="amount"
                           name="amount"
                           value={formData.amount}
                           onChange={handleChange}
                           placeholder="0.00"
-                          step="0.01"
-                          min="0"
                           required
                           disabled={loading}
+                          onKeyDown={(e) => { 
+                            if (!/[0-9.]/.test(e.key)) {
+                              e.preventDefault();
+                            }
+                          }}
                         />
                       </div>
                     </div>
@@ -671,16 +675,20 @@ const FinanceHub = () => {
                       <div className="amount-input">
                         <span className="currency-symbol">KES</span>
                         <input
-                          type="number"
+                          type="text"
+                          inputMode="decimal"
                           id="budget_amount"
                           name="amount"
                           value={budgetFormData.amount}
                           onChange={handleBudgetChange}
                           placeholder="0.00"
-                          step="0.01"
-                          min="0"
                           required
                           disabled={loading}
+                          onKeyDown={(e) => { 
+                            if (!/[0-9.]/.test(e.key)) {
+                              e.preventDefault();
+                            }
+                          }}
                         />
                       </div>
                     </div>

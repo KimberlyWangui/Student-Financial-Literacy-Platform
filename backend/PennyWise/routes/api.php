@@ -15,6 +15,7 @@ use App\Http\Controllers\SimulationController;
 use App\Http\Controllers\BadgeController;
 use App\Http\Controllers\StudentBadgeController;
 use App\Http\Controllers\AIController;
+use App\Http\Controllers\InvestmentSimulationController;
 
 // ============================================
 // PUBLIC ROUTES (No Authentication Required)
@@ -78,6 +79,9 @@ Route::middleware('auth:sanctum')->group(function () {
     // Admin can view all profiles
     Route::middleware('admin')->group(function () {
         Route::get('student-profiles', [StudentProfileController::class, 'index']);
+        Route::get('student-profiles/active', [StudentProfileController::class, 'activeStudents']);
+        Route::get('student-profiles/total-students', [StudentProfileController::class, 'totalStudents']);
+        Route::get('student-profiles/new-students', [StudentProfileController::class, 'newStudents']);
     });
 
     // Routes accessible by both students and admins
@@ -284,6 +288,37 @@ Route::middleware('auth:sanctum')->group(function () {
         
         // View specific simulation
         Route::get('simulations/{id}', [SimulationController::class, 'show']);
+    });
+
+    // ============================================
+    // INVESTMENT SIMULATION ROUTES
+    // ============================================
+
+    // Get investment types/statistics (available to all authenticated users)
+    Route::get('investments/types', [InvestmentSimulationController::class, 'getInvestmentTypes']);
+
+    // Preview simulation without saving (available to all)
+    Route::post('investments/preview', [InvestmentSimulationController::class, 'preview']);
+
+    // Compare multiple investment scenarios
+    Route::post('investments/compare', [InvestmentSimulationController::class, 'compare']);
+
+    // Get my investment statistics (student only)
+    Route::get('investments/my-statistics', [InvestmentSimulationController::class, 'myStatistics']);
+
+    // Create investment simulation (student only)
+    Route::post('investments', [InvestmentSimulationController::class, 'store']);
+
+    // Delete investment simulation (student can delete own, admin can delete any)
+    Route::delete('investments/{id}', [InvestmentSimulationController::class, 'destroy']);
+
+    // Routes accessible by both students and admins (READ operations)
+    Route::middleware('student.or.admin')->group(function () {
+        // List simulations (filtered by role in controller)
+        Route::get('investments', [InvestmentSimulationController::class, 'index']);
+        
+        // View specific simulation
+        Route::get('investments/{id}', [InvestmentSimulationController::class, 'show']);
     });
 
     // ============================================

@@ -13,52 +13,79 @@ import {
   CartesianGrid,
   Tooltip,
   Legend,
-  ResponsiveContainer
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  PieChart,
+  Pie,
+  Cell
 } from 'recharts';
-import InvestmentImage from '../assets/Investment.jpeg';
 
 const Simulations = () => {
   const navigate = useNavigate();
   const user = authService.getCurrentUser();
 
-  // Form state - matching API requirements
+  // Investment types state
+  const [investmentTypes, setInvestmentTypes] = useState([]);
+  const [loadingTypes, setLoadingTypes] = useState(true);
+
+  // Form state - matching new API requirements
   const [formData, setFormData] = useState({
-    principal: '',
-    interest_rate: '',
-    time_period: '', // In months as per API (max 600)
-    calculation_type: 'simple'
+    amount_invested: '',
+    duration_value: '',
+    duration_unit: 'months',
+    investment_type: '',
+    monthly_topup: '',
+    target_amount: '',
+    reinvestment_frequency: 'monthly'
   });
 
   // UI state
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+  const [activeView, setActiveView] = useState('explore'); // 'explore', 'simulate', 'history'
   
   // Simulation results
   const [previewResult, setPreviewResult] = useState(null);
   const [savedSimulations, setSavedSimulations] = useState([]);
   const [simulationsLoading, setSimulationsLoading] = useState(true);
-  const [showSimulationsList, setShowSimulationsList] = useState(true);
   
   // Statistics
   const [statistics, setStatistics] = useState(null);
-  const [editingSimulation, setEditingSimulation] = useState(null);
+  const [selectedSimulation, setSelectedSimulation] = useState(null);
 
   useEffect(() => {
+    fetchInvestmentTypes();
     fetchSimulations();
     fetchStatistics();
   }, []);
 
+  const fetchInvestmentTypes = async () => {
+    setLoadingTypes(true);
+    try {
+      const response = await api.get('/investments/types');
+      
+      if (response.data && response.data.data) {
+        setInvestmentTypes(response.data.data.investment_types || []);
+      }
+    } catch (err) {
+      console.error('Error fetching investment types:', err);
+      setError('Failed to load investment options. Please refresh the page.');
+    } finally {
+      setLoadingTypes(false);
+    }
+  };
+
   const fetchSimulations = async () => {
     setSimulationsLoading(true);
     try {
-      const response = await api.get('/simulations', {
+      const response = await api.get('/investments', {
         params: { per_page: 20 }
       });
       
       if (response.data && response.data.data) {
         const simData = response.data.data;
-        // Handle both paginated and non-paginated responses
         if (simData.data && Array.isArray(simData.data)) {
           setSavedSimulations(simData.data);
         } else if (Array.isArray(simData)) {
@@ -77,7 +104,7 @@ const Simulations = () => {
 
   const fetchStatistics = async () => {
     try {
-      const response = await api.get('/simulations/my-statistics');
+      const response = await api.get('/investments/my-statistics');
       
       if (response.data && response.data.data) {
         setStatistics(response.data.data);
@@ -101,43 +128,55 @@ const Simulations = () => {
     setError('');
   };
 
+  const handleSelectInvestmentType = (type) => {
+    setFormData(prev => ({
+      ...prev,
+      investment_type: type
+    }));
+    setActiveView('simulate');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   const handlePreview = async (e) => {
     e.preventDefault();
     setLoading(true);
     clearMessages();
 
-    if (parseFloat(formData.principal) <= 0) {
-      setError('Initial amount must be greater than 0');
+    // Validation
+    if (parseFloat(formData.amount_invested) <= 0) {
+      setError('Initial investment must be greater than 0');
       setLoading(false);
       return;
     }
 
-    if (parseFloat(formData.interest_rate) < 0 || parseFloat(formData.interest_rate) > 100) {
-      setError('Interest rate must be between 0 and 100');
+    if (parseInt(formData.duration_value) <= 0) {
+      setError('Duration must be greater than 0');
       setLoading(false);
       return;
     }
 
-    if (parseInt(formData.time_period) <= 0 || parseInt(formData.time_period) > 600) {
-      setError('Duration must be between 1 and 600 months (50 years)');
+    if (!formData.investment_type) {
+      setError('Please select an investment type');
       setLoading(false);
       return;
     }
 
     const submissionData = {
-      principal: parseFloat(formData.principal),
-      interest_rate: parseFloat(formData.interest_rate),
-      time_period: parseInt(formData.time_period),
-      calculation_type: formData.calculation_type
+      amount_invested: parseFloat(formData.amount_invested),
+      duration_value: parseInt(formData.duration_value),
+      duration_unit: formData.duration_unit,
+      investment_type: formData.investment_type,
+      monthly_topup: parseFloat(formData.monthly_topup) || 0,
+      target_amount: parseFloat(formData.target_amount) || null,
+      reinvestment_frequency: formData.reinvestment_frequency
     };
 
     try {
-      const response = await api.post('/simulations/preview', submissionData);
+      const response = await api.post('/investments/preview', submissionData);
       
       if (response.data && response.data.data) {
         setPreviewResult(response.data.data);
         setMessage('Simulation preview calculated successfully!');
-        
         setTimeout(() => setMessage(''), 3000);
       }
     } catch (err) {
@@ -163,34 +202,35 @@ const Simulations = () => {
     clearMessages();
 
     const submissionData = {
-      principal: parseFloat(formData.principal),
-      interest_rate: parseFloat(formData.interest_rate),
-      time_period: parseInt(formData.time_period),
-      calculation_type: formData.calculation_type
+      amount_invested: parseFloat(formData.amount_invested),
+      duration_value: parseInt(formData.duration_value),
+      duration_unit: formData.duration_unit,
+      investment_type: formData.investment_type,
+      monthly_topup: parseFloat(formData.monthly_topup) || 0,
+      target_amount: parseFloat(formData.target_amount) || null,
+      reinvestment_frequency: formData.reinvestment_frequency
     };
 
     try {
-      if (editingSimulation) {
-        await api.put(`/simulations/${editingSimulation.simulation_id}`, submissionData);
-        setMessage('Simulation updated successfully!');
-      } else {
-        await api.post('/simulations', submissionData);
-        setMessage('Simulation saved successfully!');
-      }
+      await api.post('/investments', submissionData);
+      setMessage('Investment simulation saved successfully!');
 
       setFormData({
-        principal: '',
-        interest_rate: '',
-        time_period: '',
-        calculation_type: 'simple'
+        amount_invested: '',
+        duration_value: '',
+        duration_unit: 'months',
+        investment_type: '',
+        monthly_topup: '',
+        target_amount: '',
+        reinvestment_frequency: 'monthly'
       });
       setPreviewResult(null);
-      setEditingSimulation(null);
       
       setTimeout(() => {
         setMessage('');
         fetchSimulations();
         fetchStatistics();
+        setActiveView('history');
       }, 2000);
     } catch (err) {
       console.error('Error saving simulation:', err);
@@ -205,27 +245,8 @@ const Simulations = () => {
     }
   };
 
-  const handleEdit = (simulation) => {
-    setEditingSimulation(simulation);
-    setFormData({
-      principal: simulation.principal,
-      interest_rate: simulation.interest_rate,
-      time_period: simulation.time_period,
-      calculation_type: simulation.calculation_type || 'simple'
-    });
-    
-    // Set preview result from saved simulation data
-    setPreviewResult({
-      principal: simulation.principal,
-      interest_rate: simulation.interest_rate,
-      time_period: simulation.time_period,
-      time_period_years: simulation.time_period_years || (simulation.time_period / 12).toFixed(2),
-      result: simulation.result,
-      interest_earned: simulation.interest_earned,
-      roi_percentage: simulation.roi_percentage,
-      calculation_type: simulation.calculation_type || 'simple'
-    });
-    
+  const handleViewSimulation = (simulation) => {
+    setSelectedSimulation(simulation);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -235,7 +256,7 @@ const Simulations = () => {
     }
 
     try {
-      await api.delete(`/simulations/${simulationId}`);
+      await api.delete(`/investments/${simulationId}`);
       setMessage('Simulation deleted successfully!');
       
       setTimeout(() => {
@@ -250,48 +271,22 @@ const Simulations = () => {
     }
   };
 
-  const handleCancelEdit = () => {
-    setEditingSimulation(null);
+  const handleReset = () => {
     setFormData({
-      principal: '',
-      interest_rate: '',
-      time_period: '',
-      calculation_type: 'simple'
+      amount_invested: '',
+      duration_value: '',
+      duration_unit: 'months',
+      investment_type: '',
+      monthly_topup: '',
+      target_amount: '',
+      reinvestment_frequency: 'monthly'
     });
     setPreviewResult(null);
+    setSelectedSimulation(null);
     clearMessages();
   };
 
-  // Generate chart data for projected growth
-  const generateChartData = () => {
-    if (!previewResult) return [];
-    
-    const data = [];
-    const principal = parseFloat(String(previewResult.principal).replace(/,/g, ''));
-    const rate = parseFloat(previewResult.interest_rate) / 100;
-    const months = parseInt(previewResult.time_period);
-    const years = Math.ceil(months / 12);
-    const isCompound = previewResult.calculation_type === 'compound';
-    
-    for (let year = 0; year <= years; year++) {
-      let value;
-      if (isCompound) {
-        value = principal * Math.pow(1 + rate, year);
-      } else {
-        value = principal + (principal * rate * year);
-      }
-      
-      data.push({
-        year: `Year ${year}`,
-        value: parseFloat(value.toFixed(2))
-      });
-    }
-    
-    return data;
-  };
-
   const formatCurrency = (amount) => {
-    // Remove commas if present and convert to number
     const numAmount = typeof amount === 'string' 
       ? parseFloat(amount.replace(/,/g, ''))
       : parseFloat(amount);
@@ -302,7 +297,59 @@ const Simulations = () => {
     });
   };
 
-  const chartData = generateChartData();
+  const generateChartData = (timeline) => {
+    if (!timeline || timeline.length === 0) return [];
+    
+    return timeline.map(item => ({
+      month: `Month ${item.month}`,
+      value: item.value,
+      contributions: item.contributions_to_date,
+      growth: item.growth
+    }));
+  };
+
+  const getRiskColor = (riskLevel) => {
+    const colors = {
+      'very_low': '#10b981',
+      'low': '#3b82f6',
+      'medium': '#f59e0b',
+      'high': '#ef4444'
+    };
+    return colors[riskLevel] || '#6b7280';
+  };
+
+  const getInvestmentTypeIcon = (type) => {
+    const icons = {
+      mmf: (
+        <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+          <line x1="8" y1="21" x2="16" y2="21"></line>
+          <line x1="12" y1="17" x2="12" y2="21"></line>
+        </svg>
+      ),
+      tbill: (
+        <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+          <polyline points="14 2 14 8 20 8"></polyline>
+          <line x1="16" y1="13" x2="8" y2="13"></line>
+          <line x1="16" y1="17" x2="8" y2="17"></line>
+          <polyline points="10 9 9 9 8 9"></polyline>
+        </svg>
+      ),
+      stock: (
+        <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+        </svg>
+      ),
+      bond: (
+        <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <line x1="12" y1="1" x2="12" y2="23"></line>
+          <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+        </svg>
+      )
+    };
+    return icons[type] || icons.mmf;
+  };
 
   return (
     <div className="simulations-page">
@@ -310,15 +357,54 @@ const Simulations = () => {
       
       <main className="simulations-main">
         <div className="simulations-container">
+          {/* Page Header */}
           <div className="page-header">
             <div className="page-header-icon">
               <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <line x1="12" y1="1" x2="12" y2="23"></line>
-                <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+                <circle cx="12" cy="12" r="10"></circle>
+                <polyline points="12 6 12 12 16 14"></polyline>
               </svg>
             </div>
-            <h1>Investment Simulation</h1>
-            <p>Calculate and visualize your investment growth over time</p>
+            <h1>Investment Simulator</h1>
+            <p>Explore investment options and simulate your financial growth</p>
+          </div>
+
+          {/* Navigation Tabs */}
+          <div className="view-tabs">
+            <button 
+              className={`tab-btn ${activeView === 'explore' ? 'active' : ''}`}
+              onClick={() => setActiveView('explore')}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="11" cy="11" r="8"></circle>
+                <path d="m21 21-4.35-4.35"></path>
+              </svg>
+              Explore Options
+            </button>
+            <button 
+              className={`tab-btn ${activeView === 'simulate' ? 'active' : ''}`}
+              onClick={() => setActiveView('simulate')}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+                <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+                <line x1="12" y1="22.08" x2="12" y2="12"></line>
+              </svg>
+              Create Simulation
+            </button>
+            <button 
+              className={`tab-btn ${activeView === 'history' ? 'active' : ''}`}
+              onClick={() => setActiveView('history')}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
+                <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
+              </svg>
+              My Simulations
+              {savedSimulations.length > 0 && (
+                <span className="badge">{savedSimulations.length}</span>
+              )}
+            </button>
           </div>
 
           {/* Success/Error Messages */}
@@ -343,432 +429,845 @@ const Simulations = () => {
             </div>
           )}
 
-          <div className="simulations-grid">
-            {/* Left Column - Form & Image */}
-            <div className="simulations-left">
-              <div className="simulation-card">
-                <div className="investment-image-container">
-                  <img src={InvestmentImage} alt="Investment" className="investment-image" />
-                </div>
-                
-                <h2 className="card-title">
-                  {editingSimulation ? (
-                    <>
-                      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-                        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
-                      </svg>
-                      Edit Investment Simulation
-                    </>
-                  ) : (
-                    <>
-                      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <line x1="12" y1="5" x2="12" y2="19"></line>
-                        <polyline points="5 12 12 19 19 12"></polyline>
-                      </svg>
-                      Investment Simulation
-                    </>
-                  )}
-                </h2>
-
-                <form onSubmit={handlePreview} className="simulation-form">
-                  <div className="form-group">
-                    <label htmlFor="principal">Initial Amount (KES)</label>
-                    <div className="input-with-icon">
-                      <span className="input-icon">KES</span>
-                      <input
-                        type="number"
-                        id="principal"
-                        name="principal"
-                        value={formData.principal}
-                        onChange={handleChange}
-                        placeholder="10000"
-                        step="0.01"
-                        min="0.01"
-                        max="999999999.99"
-                        required
-                        disabled={loading}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="form-group">
-                    <label htmlFor="calculation_type">Type of Investment</label>
-                    <select
-                      id="calculation_type"
-                      name="calculation_type"
-                      value={formData.calculation_type}
-                      onChange={handleChange}
-                      required
-                      disabled={loading}
-                    >
-                      <option value="simple">Simple Interest (Stocks)</option>
-                      <option value="compound">Compound Interest (Bonds)</option>
-                    </select>
-                  </div>
-
-                  <div className="form-group">
-                    <label htmlFor="interest_rate">Annual Interest Rate (%)</label>
-                    <div className="input-with-icon">
-                      <span className="input-icon">%</span>
-                      <input
-                        type="number"
-                        id="interest_rate"
-                        name="interest_rate"
-                        value={formData.interest_rate}
-                        onChange={handleChange}
-                        placeholder="7.5"
-                        step="0.01"
-                        min="0"
-                        max="100"
-                        required
-                        disabled={loading}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="form-group">
-                    <label htmlFor="time_period">Duration (Months)</label>
-                    <input
-                      type="number"
-                      id="time_period"
-                      name="time_period"
-                      value={formData.time_period}
-                      onChange={handleChange}
-                      placeholder="120 (10 years)"
-                      min="1"
-                      max="600"
-                      required
-                      disabled={loading}
-                    />
-                    <small className="form-hint">Enter duration in months (1-600 months / 0-50 years)</small>
-                  </div>
-
-                  <div className="form-actions">
-                    <button type="submit" className="preview-btn" disabled={loading}>
-                      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <circle cx="11" cy="11" r="8"></circle>
-                        <path d="m21 21-4.35-4.35"></path>
-                      </svg>
-                      {loading ? 'Calculating...' : 'Preview Simulation'}
-                    </button>
-                    
-                    {previewResult && (
-                      <button 
-                        type="button" 
-                        className="save-btn" 
-                        onClick={handleSave}
-                        disabled={loading}
-                      >
-                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
-                          <polyline points="17 21 17 13 7 13 7 21"></polyline>
-                          <polyline points="7 3 7 8 15 8"></polyline>
-                        </svg>
-                        {editingSimulation ? 'Update Simulation' : 'Save Simulation'}
-                      </button>
-                    )}
-                    
-                    {editingSimulation && (
-                      <button 
-                        type="button" 
-                        className="cancel-btn"
-                        onClick={handleCancelEdit}
-                      >
-                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <line x1="18" y1="6" x2="6" y2="18"></line>
-                          <line x1="6" y1="6" x2="18" y2="18"></line>
-                        </svg>
-                        Cancel
-                      </button>
-                    )}
-                  </div>
-                </form>
+          {/* EXPLORE VIEW - Investment Types */}
+          {activeView === 'explore' && (
+            <div className="explore-section">
+              <div className="section-intro">
+                <h2>Choose Your Investment Path</h2>
+                <p>Select an investment type to learn more and start your simulation</p>
               </div>
-            </div>
 
-            {/* Right Column - Results & Chart */}
-            <div className="simulations-right">
-              {previewResult ? (
-                <div className="simulation-card">
-                  <h2 className="card-title">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
-                    </svg>
-                    Projected Growth
-                  </h2>
-                  
-                  <div className="results-summary">
-                    <div className="result-item">
-                      <span className="result-label">Initial Investment</span>
-                      <span className="result-value">KES {formatCurrency(previewResult.principal)}</span>
-                    </div>
-                    <div className="result-item">
-                      <span className="result-label">Final Value</span>
-                      <span className="result-value final">KES {formatCurrency(previewResult.result)}</span>
-                    </div>
-                    <div className="result-item">
-                      <span className="result-label">Interest Earned</span>
-                      <span className="result-value earned">KES {formatCurrency(previewResult.interest_earned)}</span>
-                    </div>
-                    <div className="result-item">
-                      <span className="result-label">ROI</span>
-                      <span className="result-value roi">{parseFloat(previewResult.roi_percentage).toFixed(2)}%</span>
-                    </div>
-                  </div>
-
-                  <div className="chart-container">
-                    <ResponsiveContainer width="100%" height={300}>
-                      <LineChart data={chartData} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                        <XAxis 
-                          dataKey="year" 
-                          tick={{ fill: '#666', fontSize: 12 }}
-                          angle={-45}
-                          textAnchor="end"
-                          height={60}
-                        />
-                        <YAxis 
-                          tick={{ fill: '#666', fontSize: 12 }}
-                          tickFormatter={(value) => `${(value / 1000).toFixed(0)}K`}
-                        />
-                        <Tooltip 
-                          formatter={(value) => [`KES ${formatCurrency(value)}`, 'Projected Value']}
-                          contentStyle={{
-                            backgroundColor: 'white',
-                            border: '1px solid #e5e7eb',
-                            borderRadius: '8px',
-                            padding: '10px'
-                          }}
-                        />
-                        <Legend />
-                        <Line 
-                          type="monotone" 
-                          dataKey="value" 
-                          stroke="#4c6ef5" 
-                          strokeWidth={3}
-                          dot={{ fill: '#4c6ef5', r: 4 }}
-                          activeDot={{ r: 6 }}
-                          name="Investment Value"
-                        />
-                      </LineChart>
-                    </ResponsiveContainer>
-                  </div>
+              {loadingTypes ? (
+                <div className="loading-state">
+                  <div className="loader"></div>
+                  <p>Loading investment options...</p>
                 </div>
               ) : (
-                <div className="simulation-card empty-state-card">
-                  <div className="empty-state">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                      <line x1="12" y1="1" x2="12" y2="23"></line>
-                      <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
-                    </svg>
-                    <h3>No Simulation Yet</h3>
-                    <p>Fill in the investment details and click "Preview Simulation" to see your projected growth!</p>
-                  </div>
+                <div className="investment-types-grid">
+                  {investmentTypes.map((type) => (
+                    <div key={type.type} className="investment-type-card">
+                      <div className="type-card-header">
+                        <div className="type-icon" style={{ color: getRiskColor(type.risk_level) }}>
+                          {getInvestmentTypeIcon(type.type)}
+                        </div>
+                        <span className={`risk-badge risk-${type.risk_level.replace('_', '-')}`}>
+                          {type.risk_level.replace('_', ' ').toUpperCase()}
+                        </span>
+                      </div>
+
+                      <h3 className="type-name">{type.name}</h3>
+                      <p className="type-description">{type.description}</p>
+
+                      <div className="type-stats">
+                        <div className="stat-item">
+                          <span className="stat-label">Avg. Return</span>
+                          <span className="stat-value return">{type.average_return}%</span>
+                        </div>
+                        <div className="stat-item">
+                          <span className="stat-label">Volatility</span>
+                          <span className="stat-value">{type.volatility}%</span>
+                        </div>
+                        <div className="stat-item">
+                          <span className="stat-label">Duration</span>
+                          <span className="stat-value">{type.recommended_duration}</span>
+                        </div>
+                      </div>
+
+                      <div className="type-range">
+                        <span className="range-label">Expected Return Range:</span>
+                        <div className="range-bar">
+                          <span className="range-min">{type.min_expected_return}%</span>
+                          <div className="range-fill" style={{ 
+                            background: `linear-gradient(to right, ${getRiskColor(type.risk_level)}, ${getRiskColor(type.risk_level)}dd)`,
+                            width: '100%'
+                          }}></div>
+                          <span className="range-max">{type.max_expected_return}%</span>
+                        </div>
+                      </div>
+
+                      <button 
+                        className="select-type-btn"
+                        onClick={() => handleSelectInvestmentType(type.type)}
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <polyline points="9 18 15 12 9 6"></polyline>
+                        </svg>
+                        Start Simulation
+                      </button>
+                    </div>
+                  ))}
                 </div>
               )}
 
-              {/* Smart Investment Tips */}
-              <div className="simulation-card tips-card">
-                <h2 className="card-title">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <circle cx="12" cy="12" r="10"></circle>
-                    <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path>
-                    <line x1="12" y1="17" x2="12.01" y2="17"></line>
-                  </svg>
-                  Smart Investment Tips
-                </h2>
-                <ul className="tips-list">
-                  <li>
-                    <strong>Start Early:</strong> Compounding interest works best over longer periods. Even small, consistent contributions can grow significantly.
-                  </li>
-                  <li>
-                    <strong>Diversify Your Portfolio:</strong> Don't put all your eggs in one basket. Spread your investments across different asset classes (stocks, bonds, real estate).
-                  </li>
-                  <li>
-                    <strong>Understand Risk Tolerance:</strong> Assess how much risk you're comfortable with. Higher returns often come with higher risk, so choose investments that align with your goals.
-                  </li>
-                  <li>
-                    <strong>Regularly Review:</strong> Periodically check your investments and adjust your strategy as your financial goals and market conditions change.
-                  </li>
-                  <li>
-                    <strong>Avoid Emotional Decisions:</strong> Stick to your long-term plan and avoid making impulsive decisions based on short-term market fluctuations.
-                  </li>
-                </ul>
+              {/* Statistics Overview */}
+              {statistics && statistics.total_simulations > 0 && (
+                <div className="statistics-overview">
+                  <h3>Your Investment Journey</h3>
+                  <div className="overview-stats">
+                    <div className="overview-stat">
+                      <div className="overview-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+                        </svg>
+                      </div>
+                      <div className="overview-content">
+                        <span className="overview-label">Total Simulations</span>
+                        <span className="overview-value">{statistics.total_simulations}</span>
+                      </div>
+                    </div>
+                    <div className="overview-stat">
+                      <div className="overview-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <line x1="12" y1="1" x2="12" y2="23"></line>
+                          <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+                        </svg>
+                      </div>
+                      <div className="overview-content">
+                        <span className="overview-label">Total Invested</span>
+                        <span className="overview-value">KES {statistics.total_invested}</span>
+                      </div>
+                    </div>
+                    <div className="overview-stat">
+                      <div className="overview-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline>
+                          <polyline points="17 6 23 6 23 12"></polyline>
+                        </svg>
+                      </div>
+                      <div className="overview-content">
+                        <span className="overview-label">Projected Growth</span>
+                        <span className="overview-value growth">KES {statistics.total_projected_growth}</span>
+                      </div>
+                    </div>
+                    <div className="overview-stat">
+                      <div className="overview-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <circle cx="12" cy="12" r="10"></circle>
+                          <polyline points="12 6 12 12 16 14"></polyline>
+                        </svg>
+                      </div>
+                      <div className="overview-content">
+                        <span className="overview-label">Avg. Return</span>
+                        <span className="overview-value">{statistics.average_return}%</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* SIMULATE VIEW - Create New Simulation */}
+          {activeView === 'simulate' && (
+            <div className="simulate-section">
+              <div className="simulation-layout">
+                {/* Left: Form */}
+                <div className="simulation-form-container">
+                  <div className="simulation-card">
+                    <h2 className="card-title">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <line x1="12" y1="5" x2="12" y2="19"></line>
+                        <line x1="5" y1="12" x2="19" y2="12"></line>
+                      </svg>
+                      Investment Details
+                    </h2>
+
+                    <form onSubmit={handlePreview} className="simulation-form">
+                      <div className="form-group">
+                        <label htmlFor="investment_type">Investment Type *</label>
+                        <select
+                          id="investment_type"
+                          name="investment_type"
+                          value={formData.investment_type}
+                          onChange={handleChange}
+                          required
+                          disabled={loading}
+                        >
+                          <option value="">Select Investment Type</option>
+                          {investmentTypes.map((type) => (
+                            <option key={type.type} value={type.type}>
+                              {type.name} - {type.average_return}% avg return
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div className="form-group">
+                        <label htmlFor="amount_invested">Initial Investment (KES) *</label>
+                        <div className="input-with-icon">
+                          <span className="input-icon">KES</span>
+                          <input
+                            type="text"
+                            inputMode="decimal"
+                            id="amount_invested"
+                            name="amount_invested"
+                            value={formData.amount_invested}
+                            onChange={handleChange}
+                            placeholder="10000"
+                            required
+                            disabled={loading}
+                            onKeyDown={(e) => {
+                              if (!/[0-9.]/.test(e.key)) {
+                                e.preventDefault();
+                              }
+                            }}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="form-row">
+                        <div className="form-group">
+                          <label htmlFor="duration_value">Duration *</label>
+                          <input
+                            type="number"
+                            id="duration_value"
+                            name="duration_value"
+                            value={formData.duration_value}
+                            onChange={handleChange}
+                            placeholder="12"
+                            min="1"
+                            max="600"
+                            required
+                            disabled={loading}
+                          />
+                        </div>
+
+                        <div className="form-group">
+                          <label htmlFor="duration_unit">Unit</label>
+                          <select
+                            id="duration_unit"
+                            name="duration_unit"
+                            value={formData.duration_unit}
+                            onChange={handleChange}
+                            required
+                            disabled={loading}
+                          >
+                            <option value="months">Months</option>
+                            <option value="years">Years</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      <div className="form-group">
+                        <label htmlFor="monthly_topup">Monthly Contribution (Optional)</label>
+                        <div className="input-with-icon">
+                          <span className="input-icon">KES</span>
+                          <input
+                            type="text"
+                            inputMode="decimal"
+                            id="monthly_topup"
+                            name="monthly_topup"
+                            value={formData.monthly_topup}
+                            onChange={handleChange}
+                            placeholder="0"
+                            disabled={loading}
+                            onKeyDown={(e) => { 
+                              if (!/[0-9.]/.test(e.key)) {
+                                e.preventDefault();
+                              }
+                            }}
+                          />
+                        </div>
+                        <small className="form-hint">Add regular monthly contributions to boost growth</small>
+                      </div>
+
+                      <div className="form-group">
+                        <label htmlFor="target_amount">Target Goal (Optional)</label>
+                        <div className="input-with-icon">
+                          <span className="input-icon">KES</span>
+                          <input
+                            type="text"
+                            inputMode="decimal"
+                            id="target_amount"
+                            name="target_amount"
+                            value={formData.target_amount}
+                            onChange={handleChange}
+                            placeholder="50000"
+                            disabled={loading}
+                            onKeyDown={(e) => { 
+                              if (!/[0-9.]/.test(e.key)) {
+                                e.preventDefault();
+                              }
+                            }}
+                          />
+                        </div>
+                        <small className="form-hint">We'll calculate when you'll reach this goal</small>
+                      </div>
+
+                      <div className="form-group">
+                        <label htmlFor="reinvestment_frequency">Compounding Frequency</label>
+                        <select
+                          id="reinvestment_frequency"
+                          name="reinvestment_frequency"
+                          value={formData.reinvestment_frequency}
+                          onChange={handleChange}
+                          required
+                          disabled={loading}
+                        >
+                          <option value="monthly">Monthly</option>
+                          <option value="quarterly">Quarterly</option>
+                          <option value="annually">Annually</option>
+                        </select>
+                      </div>
+
+                      <div className="form-actions">
+                        <button type="submit" className="preview-btn" disabled={loading}>
+                          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <circle cx="11" cy="11" r="8"></circle>
+                            <path d="m21 21-4.35-4.35"></path>
+                          </svg>
+                          {loading ? 'Calculating...' : 'Preview Simulation'}
+                        </button>
+                        
+                        {previewResult && (
+                          <button 
+                            type="button" 
+                            className="save-btn" 
+                            onClick={handleSave}
+                            disabled={loading}
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+                              <polyline points="17 21 17 13 7 13 7 21"></polyline>
+                              <polyline points="7 3 7 8 15 8"></polyline>
+                            </svg>
+                            Save Simulation
+                          </button>
+                        )}
+
+                        <button 
+                          type="button" 
+                          className="reset-btn"
+                          onClick={handleReset}
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <polyline points="1 4 1 10 7 10"></polyline>
+                            <polyline points="23 20 23 14 17 14"></polyline>
+                            <path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15"></path>
+                          </svg>
+                          Reset
+                        </button>
+                      </div>
+                    </form>
+                  </div>
+                </div>
+
+                {/* Right: Results */}
+                <div className="simulation-results-container">
+                  {previewResult ? (
+                    <>
+                      {/* Summary Card */}
+                      <div className="simulation-card">
+                        <h2 className="card-title">
+                          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+                          </svg>
+                          Projection Summary
+                        </h2>
+                        
+                        <div className="results-summary">
+                          <div className="result-item highlight">
+                            <span className="result-label">Investment Type</span>
+                            <span className="result-value">
+                              {investmentTypes.find(t => t.type === previewResult.investment_details.investment_type)?.name}
+                            </span>
+                          </div>
+
+                          <div className="result-item">
+                            <span className="result-label">Initial Investment</span>
+                            <span className="result-value">KES {formatCurrency(formData.amount_invested)}</span>
+                          </div>
+
+                          <div className="result-item">
+                            <span className="result-label">Monthly Contribution</span>
+                            <span className="result-value">KES {formatCurrency(formData.monthly_topup || 0)}</span>
+                          </div>
+
+                          <div className="result-item">
+                            <span className="result-label">Total Invested</span>
+                            <span className="result-value">KES {formatCurrency(previewResult.projections.total_invested)}</span>
+                          </div>
+
+                          <div className="result-item highlight">
+                            <span className="result-label">Final Value</span>
+                            <span className="result-value final">KES {formatCurrency(previewResult.projections.projected_final_value)}</span>
+                          </div>
+
+                          <div className="result-item highlight">
+                            <span className="result-label">Total Growth</span>
+                            <span className="result-value earned">KES {formatCurrency(previewResult.projections.total_growth)}</span>
+                          </div>
+
+                          <div className="result-item highlight">
+                            <span className="result-label">Return</span>
+                            <span className="result-value roi">{previewResult.projections.percentage_return}%</span>
+                          </div>
+
+                          <div className="result-item">
+                            <span className="result-label">Annualized Return</span>
+                            <span className="result-value">{previewResult.projections.annualized_return}%</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Risk Analysis Card */}
+                      <div className="simulation-card">
+                        <h2 className="card-title">
+                          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+                          </svg>
+                          Risk Analysis
+                        </h2>
+
+                        <div className="risk-overview">
+                          <div className="risk-level-display">
+                            <span className={`risk-badge-large risk-${previewResult.risk_analysis.risk_level.replace('_', '-')}`}>
+                              {previewResult.risk_analysis.risk_level.replace('_', ' ').toUpperCase()}
+                            </span>
+                            <span className="volatility-text">
+                              Volatility: {previewResult.risk_analysis.volatility}%
+                            </span>
+                          </div>
+
+                          <div className="scenario-range">
+                            <div className="scenario-item worst">
+                              <span className="scenario-label">Worst Case (5th percentile)</span>
+                              <span className="scenario-value">KES {formatCurrency(previewResult.risk_analysis.worst_case_scenario)}</span>
+                            </div>
+                            <div className="scenario-item median">
+                              <span className="scenario-label">Median Scenario</span>
+                              <span className="scenario-value">KES {formatCurrency(previewResult.risk_analysis.median_scenario)}</span>
+                            </div>
+                            <div className="scenario-item best">
+                              <span className="scenario-label">Best Case (95th percentile)</span>
+                              <span className="scenario-value">KES {formatCurrency(previewResult.risk_analysis.best_case_scenario)}</span>
+                            </div>
+                          </div>
+
+                          <div className="confidence-interval">
+                            <p className="confidence-text">
+                              95% Confidence Interval: KES {formatCurrency(previewResult.risk_analysis.confidence_95_lower)} - 
+                              KES {formatCurrency(previewResult.risk_analysis.confidence_95_upper)}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Goal Analysis Card */}
+                      {previewResult.goal_analysis && (
+                        <div className="simulation-card goal-card">
+                          <h2 className="card-title">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <circle cx="12" cy="12" r="10"></circle>
+                              <polyline points="12 6 12 12 16 14"></polyline>
+                            </svg>
+                            Goal Analysis
+                          </h2>
+
+                          {previewResult.goal_analysis.achievable ? (
+                            <div className="goal-success">
+                              <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                                <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                              </svg>
+                              <h3>Goal Achievable!</h3>
+                              <p className="goal-message">{previewResult.goal_analysis.message}</p>
+                              <div className="goal-timeline">
+                                <div className="goal-time-item">
+                                  <span className="time-value">{previewResult.goal_analysis.years}</span>
+                                  <span className="time-label">Years</span>
+                                </div>
+                                <div className="goal-time-item">
+                                  <span className="time-value">{previewResult.goal_analysis.remaining_months}</span>
+                                  <span className="time-label">Months</span>
+                                </div>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="goal-warning">
+                              <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <circle cx="12" cy="12" r="10"></circle>
+                                <line x1="12" y1="8" x2="12" y2="12"></line>
+                                <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                              </svg>
+                              <p className="goal-message">{previewResult.goal_analysis.message}</p>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Growth Chart */}
+                      <div className="simulation-card">
+                        <h2 className="card-title">
+                          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline>
+                            <polyline points="17 6 23 6 23 12"></polyline>
+                          </svg>
+                          Growth Projection
+                        </h2>
+                        
+                        <div className="chart-container">
+                          <ResponsiveContainer width="100%" height={350}>
+                            <LineChart 
+                              data={generateChartData(previewResult.timeline)} 
+                              margin={{ top: 20, right: 30, left: 20, bottom: 20 }}
+                            >
+                              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                              <XAxis 
+                                dataKey="month" 
+                                tick={{ fill: '#666', fontSize: 11 }}
+                                interval="preserveStartEnd"
+                              />
+                              <YAxis 
+                                tick={{ fill: '#666', fontSize: 11 }}
+                                tickFormatter={(value) => `${(value / 1000).toFixed(0)}K`}
+                              />
+                              <Tooltip 
+                                formatter={(value, name) => {
+                                  const labels = {
+                                    value: 'Portfolio Value',
+                                    contributions: 'Total Contributions',
+                                    growth: 'Growth'
+                                  };
+                                  return [`KES ${formatCurrency(value)}`, labels[name]];
+                                }}
+                                contentStyle={{
+                                  backgroundColor: 'white',
+                                  border: '1px solid #e5e7eb',
+                                  borderRadius: '8px',
+                                  padding: '12px'
+                                }}
+                              />
+                              <Legend />
+                              <Line 
+                                type="monotone" 
+                                dataKey="value" 
+                                stroke="#4c6ef5" 
+                                strokeWidth={3}
+                                dot={false}
+                                name="Portfolio Value"
+                              />
+                              <Line 
+                                type="monotone" 
+                                dataKey="contributions" 
+                                stroke="#9ca3af" 
+                                strokeWidth={2}
+                                strokeDasharray="5 5"
+                                dot={false}
+                                name="Contributions"
+                              />
+                              <Line 
+                                type="monotone" 
+                                dataKey="growth" 
+                                stroke="#10b981" 
+                                strokeWidth={2}
+                                dot={false}
+                                name="Growth"
+                              />
+                            </LineChart>
+                          </ResponsiveContainer>
+                        </div>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="simulation-card empty-state-card">
+                      <div className="empty-state">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                          <circle cx="11" cy="11" r="8"></circle>
+                          <path d="m21 21-4.35-4.35"></path>
+                        </svg>
+                        <h3>No Preview Yet</h3>
+                        <p>Fill in the investment details and click "Preview Simulation" to see your projected growth and risk analysis.</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
-          </div>
+          )}
 
-          {/* Saved Simulations Section */}
-          <div className="saved-simulations-section">
-            <div className="section-header">
-              <h2 className="section-title">
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
-                  <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
-                </svg>
-                Your Saved Simulations
-              </h2>
-              <button 
-                className="toggle-btn"
-                onClick={() => setShowSimulationsList(!showSimulationsList)}
-              >
-                {showSimulationsList ? '▼ Hide' : '▶ Show'}
-              </button>
-            </div>
-
-            {showSimulationsList && (
-              <div className="simulations-list">
-                {simulationsLoading ? (
-                  <div className="loading-state">Loading simulations...</div>
-                ) : savedSimulations.length === 0 ? (
-                  <div className="empty-state">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                      <path d="M9 11l3 3L22 4"></path>
-                      <path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"></path>
-                    </svg>
-                    <p>No saved simulations yet. Create your first simulation above!</p>
+          {/* HISTORY VIEW - Saved Simulations */}
+          {activeView === 'history' && (
+            <div className="history-section">
+              {selectedSimulation ? (
+                // Detailed View
+                <div className="simulation-detail-view">
+                  <div className="detail-header">
+                    <button className="back-btn" onClick={() => setSelectedSimulation(null)}>
+                      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <line x1="19" y1="12" x2="5" y2="12"></line>
+                        <polyline points="12 19 5 12 12 5"></polyline>
+                      </svg>
+                      Back to List
+                    </button>
+                    <h2>Simulation Details</h2>
                   </div>
-                ) : (
-                  <div className="simulations-grid-list">
-                    {savedSimulations.map((simulation) => (
-                      <div key={simulation.simulation_id} className="simulation-item">
-                        <div className="simulation-item-header">
-                          <h3 className="simulation-title">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                              <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
-                            </svg>
-                            {simulation.calculation_type === 'simple' ? 'Stocks' : 'Bonds'} Investment
-                          </h3>
-                          <span className="simulation-date">
-                            {new Date(simulation.created_at).toLocaleDateString('en-US', { 
-                              year: 'numeric', 
-                              month: 'short', 
-                              day: 'numeric' 
+
+                  <div className="detail-grid">
+                    {/* Summary Card */}
+                    <div className="simulation-card">
+                      <h3 className="card-title">Investment Summary</h3>
+                      <div className="detail-info-grid">
+                        <div className="info-item">
+                          <span className="info-label">Type</span>
+                          <span className="info-value">{selectedSimulation.investment_type_name}</span>
+                        </div>
+                        <div className="info-item">
+                          <span className="info-label">Created</span>
+                          <span className="info-value">
+                            {new Date(selectedSimulation.created_at).toLocaleDateString('en-US', {
+                              year: 'numeric',
+                              month: 'long',
+                              day: 'numeric'
                             })}
                           </span>
                         </div>
-                        
-                        <div className="simulation-details">
-                          <div className="detail-row">
-                            <span className="detail-label">Initial:</span>
-                            <span className="detail-value">KES {formatCurrency(simulation.principal)}</span>
-                          </div>
-                          <div className="detail-row">
-                            <span className="detail-label">Rate:</span>
-                            <span className="detail-value">{simulation.interest_rate}%</span>
-                          </div>
-                          <div className="detail-row">
-                            <span className="detail-label">Duration:</span>
-                            <span className="detail-value">{simulation.time_period} months</span>
-                          </div>
-                          <div className="detail-row highlight">
-                            <span className="detail-label">Final Value:</span>
-                            <span className="detail-value final">KES {formatCurrency(simulation.result)}</span>
-                          </div>
-                          <div className="detail-row highlight">
-                            <span className="detail-label">Interest Earned:</span>
-                            <span className="detail-value earned">KES {formatCurrency(simulation.interest_earned)}</span>
-                          </div>
-                          <div className="detail-row highlight">
-                            <span className="detail-label">ROI:</span>
-                            <span className="detail-value roi">{parseFloat(simulation.roi_percentage).toFixed(2)}%</span>
-                          </div>
+                        <div className="info-item">
+                          <span className="info-label">Duration</span>
+                          <span className="info-value">{selectedSimulation.formatted_duration}</span>
                         </div>
-
-                        <div className="simulation-actions">
-                          <button 
-                            className="action-btn edit-btn"
-                            onClick={() => handleEdit(simulation)}
-                            title="Edit simulation"
-                          >
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-                              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
-                            </svg>
-                            Edit
-                          </button>
-                          <button 
-                            className="action-btn delete-btn"
-                            onClick={() => handleDelete(simulation.simulation_id)}
-                            title="Delete simulation"
-                          >
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                              <polyline points="3 6 5 6 21 6"></polyline>
-                              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                              <line x1="10" y1="11" x2="10" y2="17"></line>
-                              <line x1="14" y1="11" x2="14" y2="17"></line>
-                            </svg>
-                            Delete
-                          </button>
+                        <div className="info-item">
+                          <span className="info-label">Risk Level</span>
+                          <span className={`risk-badge risk-${selectedSimulation.risk_level.replace('_', '-')}`}>
+                            {selectedSimulation.risk_level.replace('_', ' ').toUpperCase()}
+                          </span>
                         </div>
                       </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
 
-          {/* Statistics Section */}
-          {statistics && statistics.total_simulations > 0 && (
-            <div className="statistics-section">
-              <h2 className="section-title">
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <line x1="18" y1="20" x2="18" y2="10"></line>
-                  <line x1="12" y1="20" x2="12" y2="4"></line>
-                  <line x1="6" y1="20" x2="6" y2="14"></line>
-                </svg>
-                Your Investment Statistics
-              </h2>
-              <div className="statistics-grid">
-                <div className="stat-card">
-                  <div className="stat-icon">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
-                    </svg>
-                  </div>
-                  <div className="stat-content">
-                    <p className="stat-label">Total Simulations</p>
-                    <p className="stat-value">{statistics.total_simulations || 0}</p>
+                      <div className="results-summary">
+                        <div className="result-item">
+                          <span className="result-label">Initial Investment</span>
+                          <span className="result-value">KES {formatCurrency(selectedSimulation.amount_invested)}</span>
+                        </div>
+                        <div className="result-item">
+                          <span className="result-label">Monthly Contribution</span>
+                          <span className="result-value">KES {formatCurrency(selectedSimulation.monthly_topup)}</span>
+                        </div>
+                        <div className="result-item">
+                          <span className="result-label">Total Invested</span>
+                          <span className="result-value">KES {formatCurrency(selectedSimulation.total_invested)}</span>
+                        </div>
+                        <div className="result-item highlight">
+                          <span className="result-label">Final Value</span>
+                          <span className="result-value final">KES {formatCurrency(selectedSimulation.projected_final_value)}</span>
+                        </div>
+                        <div className="result-item highlight">
+                          <span className="result-label">Total Growth</span>
+                          <span className="result-value earned">KES {formatCurrency(selectedSimulation.total_growth)}</span>
+                        </div>
+                        <div className="result-item highlight">
+                          <span className="result-label">ROI</span>
+                          <span className="result-value roi">{selectedSimulation.roi_percentage}%</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Growth Chart */}
+                    <div className="simulation-card">
+                      <h3 className="card-title">Growth Timeline</h3>
+                      <div className="chart-container">
+                        <ResponsiveContainer width="100%" height={300}>
+                          <LineChart 
+                            data={generateChartData(selectedSimulation.timeline)} 
+                            margin={{ top: 20, right: 30, left: 20, bottom: 20 }}
+                          >
+                            <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                            <XAxis 
+                              dataKey="month" 
+                              tick={{ fill: '#666', fontSize: 11 }}
+                              interval="preserveStartEnd"
+                            />
+                            <YAxis 
+                              tick={{ fill: '#666', fontSize: 11 }}
+                              tickFormatter={(value) => `${(value / 1000).toFixed(0)}K`}
+                            />
+                            <Tooltip 
+                              formatter={(value) => [`KES ${formatCurrency(value)}`, 'Portfolio Value']}
+                              contentStyle={{
+                                backgroundColor: 'white',
+                                border: '1px solid #e5e7eb',
+                                borderRadius: '8px'
+                              }}
+                            />
+                            <Line 
+                              type="monotone" 
+                              dataKey="value" 
+                              stroke="#4c6ef5" 
+                              strokeWidth={3}
+                              dot={false}
+                            />
+                          </LineChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </div>
+
+                    {/* Risk Scenarios */}
+                    <div className="simulation-card">
+                      <h3 className="card-title">Risk Scenarios</h3>
+                      <div className="scenario-chart">
+                        <ResponsiveContainer width="100%" height={250}>
+                          <BarChart 
+                            data={[
+                              { name: 'Worst Case', value: selectedSimulation.worst_case_scenario },
+                              { name: 'Lower 95%', value: selectedSimulation.confidence_95_lower },
+                              { name: 'Projected', value: selectedSimulation.projected_final_value },
+                              { name: 'Upper 95%', value: selectedSimulation.confidence_95_upper },
+                              { name: 'Best Case', value: selectedSimulation.best_case_scenario }
+                            ]}
+                            margin={{ top: 20, right: 30, left: 20, bottom: 20 }}
+                          >
+                            <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                            <XAxis dataKey="name" tick={{ fill: '#666', fontSize: 11 }} />
+                            <YAxis 
+                              tick={{ fill: '#666', fontSize: 11 }}
+                              tickFormatter={(value) => `${(value / 1000).toFixed(0)}K`}
+                            />
+                            <Tooltip 
+                              formatter={(value) => [`KES ${formatCurrency(value)}`, 'Value']}
+                              contentStyle={{
+                                backgroundColor: 'white',
+                                border: '1px solid #e5e7eb',
+                                borderRadius: '8px'
+                              }}
+                            />
+                            <Bar dataKey="value" fill="#4c6ef5" radius={[8, 8, 0, 0]} />
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </div>
+
+                    {/* Goal Analysis */}
+                    {selectedSimulation.goal_analysis && selectedSimulation.goal_analysis.achievable && (
+                      <div className="simulation-card goal-card">
+                        <h3 className="card-title">Goal Analysis</h3>
+                        <div className="goal-success">
+                          <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                            <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                          </svg>
+                          <p className="goal-message">{selectedSimulation.goal_analysis.message}</p>
+                          <div className="goal-timeline">
+                            <div className="goal-time-item">
+                              <span className="time-value">{selectedSimulation.goal_analysis.years}</span>
+                              <span className="time-label">Years</span>
+                            </div>
+                            <div className="goal-time-item">
+                              <span className="time-value">{selectedSimulation.goal_analysis.remaining_months}</span>
+                              <span className="time-label">Months</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
-                <div className="stat-card">
-                  <div className="stat-icon">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <line x1="12" y1="1" x2="12" y2="23"></line>
-                      <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
-                    </svg>
+              ) : (
+                // List View
+                <>
+                  <div className="section-intro">
+                    <h2>Your Investment Simulations</h2>
+                    <p>Review and analyze your saved investment scenarios</p>
                   </div>
-                  <div className="stat-content">
-                    <p className="stat-label">Average Principal</p>
-                    <p className="stat-value">KES {statistics.average_principal ? formatCurrency(statistics.average_principal) : '0.00'}</p>
-                  </div>
-                </div>
-                <div className="stat-card">
-                  <div className="stat-icon">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <circle cx="12" cy="12" r="10"></circle>
-                      <polyline points="12 6 12 12 16 14"></polyline>
-                    </svg>
-                  </div>
-                  <div className="stat-content">
-                    <p className="stat-label">Average Result</p>
-                    <p className="stat-value">KES {statistics.average_result ? formatCurrency(statistics.average_result) : '0.00'}</p>
-                  </div>
-                </div>
-                <div className="stat-card">
-                  <div className="stat-icon">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
-                    </svg>
-                  </div>
-                  <div className="stat-content">
-                    <p className="stat-label">Highest Result</p>
-                    <p className="stat-value">KES {statistics.highest_result ? formatCurrency(statistics.highest_result) : '0.00'}</p>
-                  </div>
-                </div>
-              </div>
+
+                  {simulationsLoading ? (
+                    <div className="loading-state">
+                      <div className="loader"></div>
+                      <p>Loading your simulations...</p>
+                    </div>
+                  ) : savedSimulations.length === 0 ? (
+                    <div className="empty-state-large">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                        <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
+                        <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
+                      </svg>
+                      <h3>No Simulations Yet</h3>
+                      <p>Start by exploring investment options and creating your first simulation</p>
+                      <button className="primary-btn" onClick={() => setActiveView('explore')}>
+                        Explore Investment Options
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="simulations-grid-list">
+                      {savedSimulations.map((simulation) => (
+                        <div key={simulation.simulation_id} className="simulation-item">
+                          <div className="simulation-item-header">
+                            <div className="header-left">
+                              <div className="type-icon-small" style={{ color: getRiskColor(simulation.risk_level) }}>
+                                {getInvestmentTypeIcon(simulation.investment_type)}
+                              </div>
+                              <div>
+                                <h3 className="simulation-title">{simulation.investment_type_name}</h3>
+                                <span className="simulation-date">
+                                  {new Date(simulation.created_at).toLocaleDateString('en-US', { 
+                                    year: 'numeric', 
+                                    month: 'short', 
+                                    day: 'numeric' 
+                                  })}
+                                </span>
+                              </div>
+                            </div>
+                            <span className={`risk-badge risk-${simulation.risk_level.replace('_', '-')}`}>
+                              {simulation.risk_level.replace('_', ' ').toUpperCase()}
+                            </span>
+                          </div>
+                          
+                          <div className="simulation-details">
+                            <div className="detail-row">
+                              <span className="detail-label">Initial Investment</span>
+                              <span className="detail-value">KES {formatCurrency(simulation.amount_invested)}</span>
+                            </div>
+                            <div className="detail-row">
+                              <span className="detail-label">Duration</span>
+                              <span className="detail-value">{simulation.formatted_duration}</span>
+                            </div>
+                            <div className="detail-row">
+                              <span className="detail-label">Monthly Contribution</span>
+                              <span className="detail-value">KES {formatCurrency(simulation.monthly_topup)}</span>
+                            </div>
+                            <div className="detail-row highlight">
+                              <span className="detail-label">Final Value</span>
+                              <span className="detail-value final">KES {formatCurrency(simulation.projected_final_value)}</span>
+                            </div>
+                            <div className="detail-row highlight">
+                              <span className="detail-label">Growth</span>
+                              <span className="detail-value earned">KES {formatCurrency(simulation.total_growth)}</span>
+                            </div>
+                            <div className="detail-row highlight">
+                              <span className="detail-label">ROI</span>
+                              <span className="detail-value roi">{simulation.roi_percentage}%</span>
+                            </div>
+                          </div>
+
+                          <div className="simulation-actions">
+                            <button 
+                              className="action-btn view-btn"
+                              onClick={() => handleViewSimulation(simulation)}
+                              title="View details"
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                                <circle cx="12" cy="12" r="3"></circle>
+                              </svg>
+                              View Details
+                            </button>
+                            <button 
+                              className="action-btn delete-btn"
+                              onClick={() => handleDelete(simulation.simulation_id)}
+                              title="Delete simulation"
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <polyline points="3 6 5 6 21 6"></polyline>
+                                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                              </svg>
+                              Delete
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </>
+              )}
             </div>
           )}
         </div>

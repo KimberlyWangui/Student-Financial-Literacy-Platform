@@ -74,30 +74,38 @@
 /* Input with icon wrapper */
 .input-with-icon {
   position: relative;
-  display: flex;
-  align-items: center;
+  display: block;
+  width: 100%;
 }
 
 .input-icon {
   position: absolute;
-  left: 14px;  /* Changed from 12px to 14px */
-  width: 18px;  /* Reduced from 20px to 18px */
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 18px;
   height: 18px;
   color: #6b7280;
   pointer-events: none;
+  z-index: 5;
 }
 
 .input-with-icon input {
   width: 100%;
-  padding: 10px 12px 10px 42px;  /* Adjusted padding */
+  padding-left: 45px !important;  /* FORCE left padding */
+  padding-right: 45px !important; /* FORCE right padding */
+  padding-top: 12px;
+  padding-bottom: 12px;
   font-size: 14px;
   border: 1px solid #d1d5db;
   border-radius: 6px;
   outline: none;
   transition: all 0.2s;
   box-sizing: border-box;
+  background-color: white;
+  color: #1a1a1a;
+  line-height: 1.5;
 }
-
 
 .input-with-icon input:focus {
   border-color: #1a8ccc;
@@ -112,23 +120,35 @@
   box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
 }
 
+.input-with-icon input::placeholder {
+  color: #9ca3af;
+}
+
 /* Toggle password button */
 .toggle-password {
   position: absolute;
-  right: 12px;
-  background: none;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: transparent;
   border: none;
   cursor: pointer;
-  padding: 4px;
+  padding: 6px;
   display: flex;
   align-items: center;
   justify-content: center;
   color: #6b7280;
   transition: color 0.2s;
+  z-index: 5;
 }
 
-.toggle-password:hover {
-  color: #374151;
+.toggle-password:hover:not(:disabled) {
+  color: #1a8ccc;
+}
+
+.toggle-password:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
 }
 
 .toggle-password svg {
