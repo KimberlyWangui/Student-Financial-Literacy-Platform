@@ -1,0 +1,491 @@
+.student-dashboard-page {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background-color: #f5f7fa;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+}
+
+.dashboard-main {
+  flex: 1;
+  padding: 24px;
+}
+
+.dashboard-container {
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+/* Welcome Section */
+.welcome-section {
+  background: white;
+  border-radius: 16px;
+  padding: 32px;
+  margin-bottom: 24px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.welcome-title {
+  font-size: 32px;
+  font-weight: 700;
+  color: #1a1a1a;
+  margin-bottom: 8px;
+}
+
+.welcome-subtitle {
+  font-size: 16px;
+  color: #666;
+  line-height: 1.6;
+}
+
+/* Dashboard Grid */
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 24px;
+}
+
+/* Dashboard Cards */
+.dashboard-card {
+  background: white;
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  margin-bottom: 24px;
+}
+
+.card-header {
+  margin-bottom: 20px;
+}
+
+.card-title {
+  font-size: 20px;
+  font-weight: 700;
+  color: #1a1a1a;
+  margin-bottom: 4px;
+}
+
+.card-subtitle {
+  font-size: 14px;
+  color: #6b7280;
+}
+
+/* Budget Overview */
+.budget-summary {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  margin-bottom: 24px;
+}
+
+.budget-item {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.budget-label {
+  font-size: 14px;
+  color: #6b7280;
+  font-weight: 500;
+}
+
+.budget-value {
+  font-size: 24px;
+  font-weight: 700;
+  color: #1a1a1a;
+}
+
+.budget-value.balance {
+  color: #4c6ef5;
+}
+
+.income-expense {
+  display: flex;
+  gap: 8px;
+  font-size: 18px;
+}
+
+.income {
+  color: #10b981;
+}
+
+.expense {
+  color: #ef4444;
+}
+
+/* Chart Container */
+.chart-container {
+  background: #f9fafb;
+  border-radius: 12px;
+  padding: 20px;
+  margin-top: 20px;
+}
+
+.chart-loading {
+  text-align: center;
+  padding: 60px 20px;
+  color: #6b7280;
+  font-size: 16px;
+}
+
+/* Transactions Table */
+.transactions-table {
+  display: flex;
+  flex-direction: column;
+}
+
+.table-header,
+.table-row {
+  display: grid;
+  grid-template-columns: 110px 1fr 140px 140px;
+  gap: 16px;
+  padding: 12px 8px;
+  align-items: center;
+}
+
+.table-header {
+  font-size: 12px;
+  font-weight: 600;
+  color: #6b7280;
+  text-transform: uppercase;
+  border-bottom: 2px solid #e5e7eb;
+  letter-spacing: 0.5px;
+}
+
+.table-row {
+  border-bottom: 1px solid #f3f4f6;
+  font-size: 14px;
+  transition: background-color 0.2s;
+}
+
+.table-row:hover {
+  background-color: #f9fafb;
+}
+
+.col-date {
+  color: #6b7280;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.col-description {
+  color: #374151;
+  font-weight: 600;
+}
+
+.col-category {
+  color: #6b7280;
+  font-size: 13px;
+}
+
+.col-amount {
+  font-weight: 700;
+  text-align: right;
+  font-size: 15px;
+}
+
+.col-amount.positive {
+  color: #10b981;
+}
+
+.col-amount.negative {
+  color: #ef4444;
+}
+
+/* Loading & Empty States */
+.loading-state,
+.empty-state {
+  padding: 40px 20px;
+  text-align: center;
+  color: #6b7280;
+  font-size: 14px;
+}
+
+/* Quick Actions */
+.quick-actions-card {
+  margin-bottom: 24px;
+}
+
+.quick-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.action-btn {
+  width: 100%;
+  padding: 14px 20px;
+  border: none;
+  border-radius: 8px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.action-btn.primary {
+  background-color: #4c6ef5;
+  color: white;
+}
+
+.action-btn.primary:hover {
+  background-color: #3b5bdb;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(76, 110, 245, 0.3);
+}
+
+.action-btn.secondary {
+  background-color: white;
+  color: #4c6ef5;
+  border: 2px solid #4c6ef5;
+}
+
+.action-btn.secondary:hover {
+  background-color: #f0f4ff;
+}
+
+/* Financial Goals */
+.goals-list {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.goal-item {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.goal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.goal-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1a1a1a;
+}
+
+.goal-percentage {
+  font-size: 14px;
+  font-weight: 700;
+  color: #4c6ef5;
+}
+
+.progress-bar {
+  width: 100%;
+  height: 8px;
+  background-color: #e5e7eb;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #4c6ef5 0%, #10b981 100%);
+  border-radius: 4px;
+  transition: width 0.5s ease;
+}
+
+.goal-amount {
+  font-size: 12px;
+  color: #6b7280;
+}
+
+/* Recommendation Card */
+.recommendation-card {
+  background: linear-gradient(135deg, #dbeafe 0%, #e0f2fe 100%);
+  border: 1px solid #93c5fd;
+}
+
+.recommendation-content {
+  margin-top: 16px;
+}
+
+.recommendation-text {
+  font-size: 14px;
+  color: #1e40af;
+  line-height: 1.6;
+  font-style: italic;
+  margin-bottom: 16px;
+}
+
+.recommendation-btn {
+  width: 100%;
+  padding: 10px 16px;
+  background-color: #4c6ef5;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.recommendation-btn:hover {
+  background-color: #3b5bdb;
+  transform: translateY(-1px);
+}
+
+/* Responsive Design */
+@media (max-width: 1200px) {
+  .dashboard-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .dashboard-right {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 24px;
+  }
+}
+
+@media (max-width: 768px) {
+  .dashboard-main {
+    padding: 16px;
+  }
+  
+  .welcome-section {
+    padding: 24px;
+  }
+  
+  .welcome-title {
+    font-size: 24px;
+  }
+  
+  .welcome-subtitle {
+    font-size: 14px;
+  }
+  
+  .budget-summary {
+    grid-template-columns: 1fr;
+  }
+  
+  .budget-value {
+    font-size: 20px;
+  }
+  
+  .income-expense {
+    font-size: 16px;
+  }
+  
+  .chart-container {
+    padding: 15px;
+  }
+  
+  .table-header,
+  .table-row {
+    grid-template-columns: 90px 1fr 110px;
+    font-size: 12px;
+    gap: 12px;
+  }
+  
+  .col-category {
+    display: none;
+  }
+  
+  .dashboard-right {
+    grid-template-columns: 1fr;
+  }
+}
+/* Recommendation Card Enhancements */
+.recommendation-meta {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.recommendation-status {
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.recommendation-status.pending {
+  background-color: #fef3c7;
+  color: #92400e;
+}
+
+.recommendation-status.viewed {
+  background-color: #dbeafe;
+  color: #1e40af;
+}
+
+.recommendation-status.accepted {
+  background-color: #d1fae5;
+  color: #065f46;
+}
+
+.recommendation-status.rejected {
+  background-color: #fee2e2;
+  color: #991b1b;
+}
+
+.recommendation-status.ignored {
+  background-color: #f3f4f6;
+  color: #374151;
+}
+
+.recommendation-category {
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  background-color: rgba(76, 110, 245, 0.1);
+  color: #4c6ef5;
+}
+
+.recommendation-confidence {
+  font-size: 12px;
+  color: #1e40af;
+  font-weight: 600;
+  margin-bottom: 12px;
+}
+
+.recommendation-loading,
+.recommendation-empty {
+  font-size: 14px;
+  color: #6b7280;
+  text-align: center;
+  padding: 20px;
+  font-style: italic;
+}
+
+.recommendation-empty {
+  margin-bottom: 16px;
+}
+
+/* Update existing recommendation-text */
+.recommendation-text {
+  font-size: 14px;
+  color: #1e40af;
+  line-height: 1.6;
+  margin-bottom: 16px;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .recommendation-meta {
+    flex-direction: column;
+    gap: 8px;
+  }
+  
+  .recommendation-status,
+  .recommendation-category {
+    display: inline-block;
+    width: fit-content;
+  }
+}
