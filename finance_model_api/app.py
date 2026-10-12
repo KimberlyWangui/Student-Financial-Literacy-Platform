@@ -373,19 +373,29 @@ def safe_string(value, default=''):
 def generate_recommendation(data, predicted_label, confidence):
     """
     Generate recommendation based on behavioral prediction
+    FIXED: Properly handles all prediction labels
     """
     monthly_income = safe_float(data.get('monthly_income', 0))
     total_expenses = safe_float(data.get('total_expenses', 0))
     savings = monthly_income - total_expenses
     
-    top_cat = safe_string(data.get('top_spending_category', 'expenses'))
+    # Get spending details
+    top_cat = safe_string(data.get('top_spending_category', 'expenses')).replace('_', ' ').title()
     top_amount = safe_float(data.get('top_category_amount', 0))
     
+    # Calculate expense ratio for debugging
+    expense_ratio = (total_expenses / monthly_income * 100) if monthly_income > 0 else 0
+    
+    # DEBUG: Log what we're generating
+    print(f"[RECOMMENDATION] Predicted: {predicted_label}, Ratio: {expense_ratio:.1f}%, Savings: {savings:.2f}")
+    
+    # CRITICAL: Match prediction label exactly (case-sensitive!)
     if predicted_label == 'overspending':
         impact = round(0.10 * top_amount, 2)
         title = f"Reduce {top_cat} spending"
         text = f"You're spending {total_expenses:,.0f} KES against income of {monthly_income:,.0f} KES. Consider reducing {top_cat} by 10% to save {impact:,.0f} KES/month."
-        reasoning = f"Expense-to-income ratio: {(total_expenses/monthly_income if monthly_income > 0 else 0)*100:.0f}%. Top category: {top_cat}."
+        reasoning = f"Expense-to-income ratio: {expense_ratio:.0f}%. Top category: {top_cat} ({top_amount:,.0f} KES)."
+        category = 'Spending'
         
     elif predicted_label == 'under_saving':
         target_save = round(0.10 * monthly_income, 2)
@@ -393,24 +403,36 @@ def generate_recommendation(data, predicted_label, confidence):
         title = "Boost your savings rate"
         text = f"You're currently saving {savings:,.0f} KES/month. Try to save at least 10% ({target_save:,.0f} KES) by cutting discretionary spending."
         reasoning = f"Current savings rate: {(savings/monthly_income if monthly_income > 0 else 0)*100:.1f}%. Recommended: 10-20%."
+        category = 'Saving'
         
     elif predicted_label == 'saving_well':
         additional = round(0.05 * monthly_income, 2)
         impact = additional
         title = "Excellent savings! Consider investing"
-        text = f"You're saving {savings:,.0f} KES/month ({(savings/monthly_income if monthly_income > 0 else 0)*100:.0f}%). Consider investing {additional:,.0f} KES extra."
+        text = f"You're saving {savings:,.0f} KES/month ({(savings/monthly_income if monthly_income > 0 else 0)*100:.0f}%). Consider investing {additional:,.0f} KES extra in money market funds or treasury bills."
         reasoning = f"Strong savings rate detected. Current rate: {(savings/monthly_income if monthly_income > 0 else 0)*100:.0f}%."
+        category = 'Investment'
         
-    else:  # balanced
+    elif predicted_label == 'balanced':
         impact = 0.0
         title = "Maintain your balanced approach"
         text = f"Your finances are balanced. Keep tracking expenses and review spending patterns monthly."
-        reasoning = f"Expense-to-income ratio: {(total_expenses/monthly_income if monthly_income > 0 else 0)*100:.0f}%. Savings: {savings:,.0f} KES/month."
+        reasoning = f"Expense-to-income ratio: {expense_ratio:.0f}%. Savings: {savings:,.0f} KES/month."
+        category = 'Behavioral'
+        
+    else:
+        # FALLBACK: Unknown label - log error and default to balanced
+        print(f"⚠️ WARNING: Unknown prediction label '{predicted_label}' - defaulting to balanced")
+        impact = 0.0
+        title = "Review your finances"
+        text = f"We recommend reviewing your spending patterns. Your current savings: {savings:,.0f} KES/month."
+        reasoning = f"Expense-to-income ratio: {expense_ratio:.0f}%."
+        category = 'General'
     
     return {
         'title': title,
         'recomm_text': text,
-        'category': 'Behavioral',
+        'category': category,
         'confidence_score': round(float(confidence), 2),
         'reasoning': reasoning,
         'impact_estimate': float(impact),
