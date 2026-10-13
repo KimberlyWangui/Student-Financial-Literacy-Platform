@@ -79,6 +79,8 @@ class Recommendation extends Model
         'model_version',
         'status',
         'feedback',
+        'rule_id',
+        'superseded_at',
     ];
 
     /**
@@ -89,6 +91,7 @@ class Recommendation extends Model
     protected $casts = [
         'confidence_score' => 'decimal:2',
         'impact_estimate' => 'decimal:2',
+        'superseded_at' => 'datetime',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
     ];

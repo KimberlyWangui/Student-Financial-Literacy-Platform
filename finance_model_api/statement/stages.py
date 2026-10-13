@@ -38,6 +38,15 @@ def data_quality(df, today=None):
         "fuliza_draw_rows": int((df["type"] == "fuliza_draw").sum()),
     }
 
+def days_phrase(x):
+    """How long a buffer lasts, in words a student would say."""
+    if x is None:
+        return "an unknown number of days"
+    if x < 0.5:
+        return "less than half a day"
+    if x < 1.5:
+        return "about a day"
+    return f"about {x:.0f} days" if x >= 10 else f"about {x:.1f} days"
 
 def _confidence(days, dq):
     if days < 60 or dq["unknown_volume_share"] > 0.02:
@@ -88,7 +97,7 @@ def assign_stage(m, dq, extra_savings=0.0):
     if borrowing == "found":
         short.append("Overdraft (Fuliza) activity was detected.")
     if buffer_days is not None and buffer_days < T["short_runway_days"]:
-        short.append(f"Your balance covers only about {buffer_days} days of typical spending.")
+        short.append(f"Your balance covers only {days_phrase(buffer_days)} of typical spending.")
     if (m.get("near_zero_debit_share") or 0) >= T["near_zero_debit_share"]:
         short.append("Many payments left your wallet almost empty.")
     if (m.get("low_balance_day_share") or 0) >= T["low_balance_day_share"]:
@@ -107,7 +116,7 @@ def assign_stage(m, dq, extra_savings=0.0):
 
     if ready:
         return _result("ready_to_explore", [
-            f"Your buffer covers about {buffer_days} days of typical spending.",
+            f"Your buffer covers {days_phrase(buffer_days)} of typical spending.",
             f"About KES {net:,.0f} moved into savings, and only {ratio:.0%} of what you saved was taken back out."
             if ratio is not None else f"About KES {net:,.0f} moved into savings.",
         ], notes, confidence, borrowing, buffer_days)
@@ -127,7 +136,7 @@ def assign_stage(m, dq, extra_savings=0.0):
 
     return _result("stable", [
         "No overdraft activity detected." if borrowing == "none_detected" else "Overdraft activity detected.",
-        f"Your wallet covers about {buffer_days} days of typical spending." if buffer_days is not None
+        f"Your wallet covers {days_phrase(buffer_days)} of typical spending." if buffer_days is not None
         else "Not enough spending history to estimate your buffer.",
         "No savings deposits seen in this period.",
     ], notes, confidence, borrowing, buffer_days)

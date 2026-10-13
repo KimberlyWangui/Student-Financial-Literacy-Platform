@@ -1,8 +1,6 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-import joblib
 import pickle
-import pandas as pd
 import numpy as np
 from datetime import datetime
 import traceback
@@ -317,20 +315,18 @@ class InvestmentSimulator:
 # LOAD MODELS
 # ============================================
 
-# Load the behavioral classifier model
-behavior_model = joblib.load("finance_behavior_classifier_v3_scaled.pkl")
-print("✅ Behavioral classifier model loaded")
-
 # Load the investment simulator
+import __main__
+__main__.InvestmentSimulator = InvestmentSimulator  
 try:
     with open('investment_simulator.pkl', 'rb') as f:
         investment_package = pickle.load(f)
         investment_simulator = investment_package['simulator']
         investment_statistics = investment_package['investment_statistics']
-    print("✅ Investment simulator loaded")
+    print("Investment simulator loaded")
     print(f"   Supported types: {investment_package['supported_types']}")
 except Exception as e:
-    print(f"❌ Error loading investment simulator: {e}")
+    print(f"Error loading investment simulator: {e}")
     print(f"   Traceback: {traceback.format_exc()}")
     investment_simulator = None
     investment_statistics = None
@@ -366,195 +362,6 @@ def safe_string(value, default=''):
     except:
         return default
 
-# ============================================
-# BEHAVIORAL RECOMMENDATION FUNCTIONS
-# ============================================
-
-def generate_recommendation(data, predicted_label, confidence):
-    """
-    Generate recommendation based on behavioral prediction
-    FIXED: Properly handles all prediction labels
-    """
-    monthly_income = safe_float(data.get('monthly_income', 0))
-    total_expenses = safe_float(data.get('total_expenses', 0))
-    savings = monthly_income - total_expenses
-    
-    # Get spending details
-    top_cat = safe_string(data.get('top_spending_category', 'expenses')).replace('_', ' ').title()
-    top_amount = safe_float(data.get('top_category_amount', 0))
-    
-    # Calculate expense ratio for debugging
-    expense_ratio = (total_expenses / monthly_income * 100) if monthly_income > 0 else 0
-    
-    # DEBUG: Log what we're generating
-    print(f"[RECOMMENDATION] Predicted: {predicted_label}, Ratio: {expense_ratio:.1f}%, Savings: {savings:.2f}")
-    
-    # CRITICAL: Match prediction label exactly (case-sensitive!)
-    if predicted_label == 'overspending':
-        impact = round(0.10 * top_amount, 2)
-        title = f"Reduce {top_cat} spending"
-        text = f"You're spending {total_expenses:,.0f} KES against income of {monthly_income:,.0f} KES. Consider reducing {top_cat} by 10% to save {impact:,.0f} KES/month."
-        reasoning = f"Expense-to-income ratio: {expense_ratio:.0f}%. Top category: {top_cat} ({top_amount:,.0f} KES)."
-        category = 'Spending'
-        
-    elif predicted_label == 'under_saving':
-        target_save = round(0.10 * monthly_income, 2)
-        impact = target_save
-        title = "Boost your savings rate"
-        text = f"You're currently saving {savings:,.0f} KES/month. Try to save at least 10% ({target_save:,.0f} KES) by cutting discretionary spending."
-        reasoning = f"Current savings rate: {(savings/monthly_income if monthly_income > 0 else 0)*100:.1f}%. Recommended: 10-20%."
-        category = 'Saving'
-        
-    elif predicted_label == 'saving_well':
-        additional = round(0.05 * monthly_income, 2)
-        impact = additional
-        title = "Excellent savings! Consider investing"
-        text = f"You're saving {savings:,.0f} KES/month ({(savings/monthly_income if monthly_income > 0 else 0)*100:.0f}%). Consider investing {additional:,.0f} KES extra in money market funds or treasury bills."
-        reasoning = f"Strong savings rate detected. Current rate: {(savings/monthly_income if monthly_income > 0 else 0)*100:.0f}%."
-        category = 'Investment'
-        
-    elif predicted_label == 'balanced':
-        impact = 0.0
-        title = "Maintain your balanced approach"
-        text = f"Your finances are balanced. Keep tracking expenses and review spending patterns monthly."
-        reasoning = f"Expense-to-income ratio: {expense_ratio:.0f}%. Savings: {savings:,.0f} KES/month."
-        category = 'Behavioral'
-        
-    else:
-        # FALLBACK: Unknown label - log error and default to balanced
-        print(f"⚠️ WARNING: Unknown prediction label '{predicted_label}' - defaulting to balanced")
-        impact = 0.0
-        title = "Review your finances"
-        text = f"We recommend reviewing your spending patterns. Your current savings: {savings:,.0f} KES/month."
-        reasoning = f"Expense-to-income ratio: {expense_ratio:.0f}%."
-        category = 'General'
-    
-    return {
-        'title': title,
-        'recomm_text': text,
-        'category': category,
-        'confidence_score': round(float(confidence), 2),
-        'reasoning': reasoning,
-        'impact_estimate': float(impact),
-        'source_type': 'AI_Model',
-        'model_version': 'rf-synthetic-v2'
-    }
-
-# ============================================
-# BEHAVIORAL PREDICTION ENDPOINT
-# ============================================
-
-@app.route('/predict', methods=['POST'])
-def predict():
-    """Behavioral finance prediction endpoint"""
-    try:
-        data = request.get_json()
-        
-        if not data:
-            return jsonify({
-                'status': 'error',
-                'message': 'No JSON data received'
-            }), 400
-        
-        # Required fields
-        required_fields = [
-            'student_id', 'monthly_income', 'age',
-            'housing_burden', 'education_burden', 'essential_ratio',
-            'spending_concentration', 'tuition_monthly_share',
-            'housing_share', 'food_share', 'transportation_share',
-            'books_supplies_share', 'entertainment_share',
-            'personal_care_share', 'technology_share',
-            'health_wellness_share', 'miscellaneous_share',
-            'discretionary_ratio', 'gender', 'year_in_school',
-            'preferred_payment_method', 'major', 'top_spending_category'
-        ]
-        
-        missing_fields = [field for field in required_fields if field not in data]
-        if missing_fields:
-            return jsonify({
-                'status': 'error',
-                'message': f'Missing required fields: {", ".join(missing_fields)}'
-            }), 400
-        
-        student_id = safe_int(data['student_id'])
-        
-        # Prepare features for model
-        feature_data = {
-            # Numerical features
-            'monthly_income': safe_float(data['monthly_income']),
-            'age': safe_int(data['age']),
-            'housing_burden': safe_float(data['housing_burden']),
-            'education_burden': safe_float(data['education_burden']),
-            'essential_ratio': safe_float(data['essential_ratio']),
-            'spending_concentration': safe_float(data['spending_concentration']),
-            'tuition_monthly_share': safe_float(data['tuition_monthly_share']),
-            'housing_share': safe_float(data['housing_share']),
-            'food_share': safe_float(data['food_share']),
-            'transportation_share': safe_float(data['transportation_share']),
-            'books_supplies_share': safe_float(data['books_supplies_share']),
-            'entertainment_share': safe_float(data['entertainment_share']),
-            'personal_care_share': safe_float(data['personal_care_share']),
-            'technology_share': safe_float(data['technology_share']),
-            'health_wellness_share': safe_float(data['health_wellness_share']),
-            'miscellaneous_share': safe_float(data['miscellaneous_share']),
-            'discretionary_ratio': safe_float(data['discretionary_ratio']),
-            # Categorical features
-            'gender': safe_string(data['gender'], 'other'),
-            'year_in_school': safe_string(data['year_in_school'], 'one'),
-            'preferred_payment_method': safe_string(data['preferred_payment_method'], 'Cash'),
-            'major': safe_string(data['major'], 'Undeclared'),
-            'top_spending_category': safe_string(data['top_spending_category'], 'miscellaneous'),
-        }
-        
-        # Create DataFrame
-        df = pd.DataFrame([feature_data])
-        
-        # Ensure numeric columns are float64
-        numeric_cols = [
-            'monthly_income', 'age', 'housing_burden', 'education_burden',
-            'essential_ratio', 'spending_concentration', 'tuition_monthly_share',
-            'housing_share', 'food_share', 'transportation_share',
-            'books_supplies_share', 'entertainment_share', 'personal_care_share',
-            'technology_share', 'health_wellness_share', 'miscellaneous_share',
-            'discretionary_ratio'
-        ]
-        
-        for col in numeric_cols:
-            df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0.0).astype('float64')
-        
-        # Ensure categorical columns are strings
-        categorical_cols = ['gender', 'year_in_school', 'preferred_payment_method', 
-                           'major', 'top_spending_category']
-        for col in categorical_cols:
-            df[col] = df[col].astype(str)
-        
-        # Predict
-        prediction = behavior_model.predict(df)[0]
-        probabilities = behavior_model.predict_proba(df)[0]
-        confidence = float(probabilities.max())
-        
-        print(f"[Student {student_id}] Prediction: {prediction}, Confidence: {confidence:.3f}")
-        
-        # Generate recommendation
-        recommendation = generate_recommendation(data, prediction, confidence)
-        
-        return jsonify({
-            'status': 'success',
-            'student_id': student_id,
-            'predicted_label': prediction,
-            'confidence': round(confidence, 3),
-            'recommendation': recommendation
-        })
-        
-    except Exception as e:
-        error_trace = traceback.format_exc()
-        print("ERROR:", error_trace)
-        
-        return jsonify({
-            'status': 'error',
-            'message': str(e),
-            'trace': error_trace
-        }), 500
 
 # ============================================
 # INVESTMENT SIMULATION ENDPOINTS
@@ -755,7 +562,6 @@ def health_check():
     return jsonify({
         'status': 'healthy',
         'models': {
-            'behavioral_classifier': behavior_model is not None,
             'investment_simulator': investment_simulator is not None
         },
         'version': '2.0.0'
@@ -767,11 +573,9 @@ def api_health_check():
     return jsonify({
         'status': 'healthy',
         'services': {
-            'behavioral_prediction': behavior_model is not None,
             'investment_simulation': investment_simulator is not None
         },
         'endpoints': {
-            'behavioral': '/predict',
             'investment_simulate': '/api/investment/simulate',
             'investment_stats': '/api/investment/statistics'
         }
@@ -783,16 +587,14 @@ def api_health_check():
 
 if __name__ == '__main__':
     print("\n" + "="*60)
-    print("🚀 PennyWise Finance API Starting...")
+    print(" PennyWise Finance API Starting...")
     print("="*60)
-    print("📊 Behavioral Classifier: ✅ Loaded")
-    print(f"💰 Investment Simulator: {'✅ Loaded' if investment_simulator else '❌ Not Loaded'}")
+    print(f"Investment Simulator: {' Loaded' if investment_simulator else 'Not Loaded'}")
     print("="*60)
     print("Available Endpoints:")
-    print("  - POST /predict (Behavioral recommendations)")
     print("  - POST /api/investment/simulate (Investment simulation)")
     print("  - GET  /api/investment/statistics (Investment stats)")
     print("  - GET  /health (Health check)")
     print("="*60 + "\n")
     
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    app.run(host='127.0.0.1', port=5000, debug=False)

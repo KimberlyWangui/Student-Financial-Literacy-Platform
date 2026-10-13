@@ -14,8 +14,8 @@ use App\Http\Controllers\RecommendationController;
 use App\Http\Controllers\SimulationController;
 use App\Http\Controllers\BadgeController;
 use App\Http\Controllers\StudentBadgeController;
-use App\Http\Controllers\AIController;
 use App\Http\Controllers\InvestmentSimulationController;
+use App\Http\Controllers\StatementController;
 
 // ============================================
 // PUBLIC ROUTES (No Authentication Required)
@@ -230,36 +230,15 @@ Route::middleware('auth:sanctum')->group(function () {
     });
 
     // ============================================
-    // AI PREDICTION & RECOMMENDATIONS ROUTES
+    // M-PESA STATEMENT ROUTES
     // ============================================
-
-    // Check if student can generate a recommendation - Must come before other routes
-    Route::get('ai/can-generate', [AIController::class, 'canGenerateRecommendation']);
-
-    // Preview my aggregated data - Must come before other routes  
-    Route::get('ai/preview/me', [AIController::class, 'previewMyData']);
-
-    // Students generate their own AI recommendation
-    Route::post('ai/predict/me', [AIController::class, 'generateMyRecommendation'])
-        ->middleware('throttle:5,1440'); // Max 5 attempts per 24 hours
-
-    // ADMIN-ONLY ROUTES
-    Route::middleware('admin')->group(function () {
-        // Get AI health check - available to all authenticated users
-        Route::get('ai/health', [AIController::class, 'checkApiHealth']);
-
-        // Generate predictions for ALL students (batch processing - also used by cron)
-        Route::post('ai/predict/batch', [AIController::class, 'generatePredictionsForAllStudents']);
-
-        // Generate prediction for any specific student
-        Route::post('ai/predict/student/{studentId}', [AIController::class, 'generatePredictionForStudent']);
-
-        // Preview any student's aggregated data (debugging)
-        Route::get('ai/preview/student/{studentId}', [AIController::class, 'previewStudentData']);
-
-        // Get all recommendations for any student
-        Route::get('ai/recommendations/student/{studentId}', [AIController::class, 'getStudentRecommendations']);
-    });
+    Route::post('statements', [StatementController::class, 'store'])
+        ->middleware('throttle:10,60');  // 10 uploads per hour
+    Route::get('statements', [StatementController::class, 'index']);
+    Route::get('statements/insights', [StatementController::class, 'insights']);
+    Route::delete('statements/data', [StatementController::class, 'destroy']);
+    Route::get('statements/recommendations', [StatementController::class, 'recommendations'])
+        ->middleware('throttle:30,1');
 
     // ============================================
     // SIMULATIONS ROUTES

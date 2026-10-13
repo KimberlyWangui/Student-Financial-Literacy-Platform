@@ -22,6 +22,7 @@ from statement.classify import RULES, UNVERIFIED_RULES, add_types
 from statement.metrics import compute_metrics
 from statement.parser import add_row_ids, load, template, to_dataframe, user_key
 from statement.privacy import to_safe_records
+from statement.actions import build_actions
 from statement.stages import assign_stage, data_quality
 
 bp = Blueprint("v1", __name__)
@@ -242,4 +243,5 @@ def insights():
             "notes": stage["notes"],
             "next_step": {"id": next_id, "title": NEXT_STEP_TITLES[next_id]},
         },
+        "actions": build_actions(metrics, dq, stage, float(extra)),
     }))
