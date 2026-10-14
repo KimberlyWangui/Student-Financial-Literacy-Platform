@@ -40,4 +40,9 @@ return [
         'client_secret' => env('GOOGLE_CLIENT_SECRET'),
         'redirect' => env('GOOGLE_REDIRECT_URI'),
     ],
+
+    'statement_api' => [
+       'url'   => env('STATEMENT_API_URL', 'http://127.0.0.1:5001'),
+       'token' => env('STATEMENT_API_TOKEN'),
+   ],
 ];

@@ -14,9 +14,6 @@ class DatabaseSeeder extends Seeder
         $this->call([
             UserSeeder::class,
             StudentProfileSeeder::class,
-            FinancialDataSeeder::class,
-            BudgetSeeder::class,
-            GoalSeeder::class,
             BadgeSeeder::class,
         ]);
 
@@ -26,9 +23,7 @@ class DatabaseSeeder extends Seeder
         $this->command->info('📊 Summary:');
         $this->command->info('  - Users: 25 (5 admins + 20 students)');
         $this->command->info('  - Student Profiles: 20 (with ENUM allowance ranges)');
-        $this->command->info('  - Financial Data: 200-300 entries');
-        $this->command->info('  - Budgets: 80-100 entries');
-        $this->command->info('  - Goals: 40-60 entries');
+        $this->command->info('  - Badges: 7 (statements and simulations)');
         $this->command->newLine();
         $this->command->info('🔐 Default password for all users: password123');
         $this->command->newLine();

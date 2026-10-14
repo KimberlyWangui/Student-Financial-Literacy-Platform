@@ -78,6 +78,7 @@ class StudentProfile extends Model
         'xp_total' => 'integer',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
+        'savings_balance' => 'decimal:2'
     ];
 
     /**

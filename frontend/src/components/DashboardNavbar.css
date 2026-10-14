@@ -1,4 +1,4 @@
-.dashboard-navbar {
+.dashboard-navbar.dashboard-navbar {
   background: white;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   position: sticky;
@@ -7,7 +7,7 @@
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
 }
 
-.dashboard-navbar-container {
+.dashboard-navbar .dashboard-navbar-container {
   max-width: 1400px;
   margin: 0 auto;
   padding: 12px 24px;
@@ -17,31 +17,31 @@
 }
 
 /* Logo */
-.dashboard-logo {
+.dashboard-navbar .dashboard-logo {
   display: flex;
   align-items: center;
   cursor: pointer;
   transition: transform 0.2s;
 }
 
-.dashboard-logo:hover {
+.dashboard-navbar .dashboard-logo:hover {
   transform: scale(1.05);
 }
 
-.dashboard-logo .logo-icon {
+.dashboard-navbar .dashboard-logo .logo-icon {
   width: 32px;
   height: 32px;
   color: #1a8ccc;
 }
 
 /* Navigation Links */
-.nav-links {
+.dashboard-navbar .nav-links {
   display: flex;
   gap: 8px;
   flex: 1;
 }
 
-.nav-link {
+.dashboard-navbar .nav-link {
   background: none;
   border: none;
   padding: 8px 16px;
@@ -53,23 +53,23 @@
   transition: all 0.2s;
 }
 
-.nav-link:hover {
+.dashboard-navbar .nav-link:hover {
   background-color: #f0f9ff;
   color: #1a8ccc;
 }
 
-.nav-link.active {
+.dashboard-navbar .nav-link.active {
   background-color: #dbeafe;
   color: #1a8ccc;
   font-weight: 600;
 }
 
 /* User Section */
-.nav-user-section {
+.dashboard-navbar .nav-user-section {
   position: relative;
 }
 
-.user-avatar {
+.dashboard-navbar .user-avatar {
   width: 40px;
   height: 40px;
   border-radius: 50%;
@@ -85,15 +85,13 @@
   box-shadow: 0 2px 8px rgba(26, 140, 204, 0.3);
 }
 
-.user-avatar:hover {
+.dashboard-navbar .user-avatar:hover {
   transform: scale(1.1);
   box-shadow: 0 4px 12px rgba(26, 140, 204, 0.5);
 }
 
-/* ============================================
-   DROPDOWN MENU
-   ============================================ */
-.dropdown-menu {
+/* Dropdown Menu */
+.dashboard-navbar .dropdown-menu {
   position: absolute;
   top: 55px;
   right: 0;
@@ -117,8 +115,8 @@
   }
 }
 
-/* Dropdown Header - User Info */
-.dropdown-header {
+/* Dropdown Header */
+.dashboard-navbar .dropdown-header {
   display: flex;
   align-items: center;
   gap: 12px;
@@ -128,7 +126,7 @@
   margin-bottom: 4px;
 }
 
-.dropdown-avatar {
+.dashboard-navbar .dropdown-avatar {
   width: 48px;
   height: 48px;
   border-radius: 50%;
@@ -142,12 +140,12 @@
   flex-shrink: 0;
 }
 
-.dropdown-user-info {
+.dashboard-navbar .dropdown-user-info {
   flex: 1;
   min-width: 0;
 }
 
-.dropdown-name {
+.dashboard-navbar .dropdown-name {
   font-size: 15px;
   font-weight: 600;
   color: #1a1a1a;
@@ -157,7 +155,7 @@
   text-overflow: ellipsis;
 }
 
-.dropdown-email {
+.dashboard-navbar .dropdown-email {
   font-size: 13px;
   color: #666;
   margin: 0;
@@ -167,14 +165,14 @@
 }
 
 /* Dropdown Divider */
-.dropdown-divider {
+.dashboard-navbar .dropdown-divider {
   height: 1px;
   background-color: #e5e7eb;
   margin: 4px 0;
 }
 
 /* Dropdown Items */
-.dropdown-item {
+.dashboard-navbar .dropdown-item {
   width: 100%;
   display: flex;
   align-items: center;
@@ -191,26 +189,26 @@
   text-align: left;
 }
 
-.dropdown-item:hover {
+.dashboard-navbar .dropdown-item:hover {
   background-color: #f0f9ff;
   color: #1a8ccc;
 }
 
-.dropdown-item.logout {
+.dashboard-navbar .dropdown-item.logout {
   color: #ef4444;
 }
 
-.dropdown-item.logout:hover {
+.dashboard-navbar .dropdown-item.logout:hover {
   background-color: #fee2e2;
   color: #dc2626;
 }
 
-.dropdown-item:disabled {
+.dashboard-navbar .dropdown-item:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
 
-.dropdown-icon {
+.dashboard-navbar .dropdown-icon {
   width: 20px;
   height: 20px;
   flex-shrink: 0;
@@ -218,22 +216,22 @@
 
 /* Responsive */
 @media (max-width: 1024px) {
-  .nav-links {
+  .dashboard-navbar .nav-links {
     display: none;
   }
   
-  .dashboard-navbar-container {
+  .dashboard-navbar .dashboard-navbar-container {
     gap: 16px;
   }
 }
 
 @media (max-width: 768px) {
-  .dropdown-menu {
+  .dashboard-navbar .dropdown-menu {
     min-width: 260px;
     right: -10px;
   }
   
-  .user-avatar {
+  .dashboard-navbar .user-avatar {
     width: 36px;
     height: 36px;
     font-size: 16px;

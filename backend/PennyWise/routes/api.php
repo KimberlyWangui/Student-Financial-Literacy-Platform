@@ -7,14 +7,12 @@ use App\Http\Controllers\PasswordResetController;
 use App\Http\Controllers\GoogleAuthController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\StudentProfileController;
-use App\Http\Controllers\FinancialDataController;
-use App\Http\Controllers\GoalController;
-use App\Http\Controllers\BudgetController;
 use App\Http\Controllers\RecommendationController;
 use App\Http\Controllers\SimulationController;
 use App\Http\Controllers\BadgeController;
 use App\Http\Controllers\StudentBadgeController;
-use App\Http\Controllers\AIController;
+use App\Http\Controllers\InvestmentSimulationController;
+use App\Http\Controllers\StatementController;
 
 // ============================================
 // PUBLIC ROUTES (No Authentication Required)
@@ -78,6 +76,9 @@ Route::middleware('auth:sanctum')->group(function () {
     // Admin can view all profiles
     Route::middleware('admin')->group(function () {
         Route::get('student-profiles', [StudentProfileController::class, 'index']);
+        Route::get('student-profiles/active', [StudentProfileController::class, 'activeStudents']);
+        Route::get('student-profiles/total-students', [StudentProfileController::class, 'totalStudents']);
+        Route::get('student-profiles/new-students', [StudentProfileController::class, 'newStudents']);
     });
 
     // Routes accessible by both students and admins
@@ -90,104 +91,6 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::put('student-profiles/{id}', [StudentProfileController::class, 'update']);
         Route::patch('student-profiles/{id}', [StudentProfileController::class, 'update']);
         Route::delete('student-profiles/{id}', [StudentProfileController::class, 'destroy']);
-    });
-
-    // ============================================
-    // FINANCIAL DATA ROUTES
-    // ============================================
-
-    // Get metadata (entry types and categories)
-    Route::get('financial-data/metadata', [FinancialDataController::class, 'metadata']);
-
-    // Get my financial summary (student only)
-    Route::get('financial-data/my-summary', [FinancialDataController::class, 'mySummary']);
-
-    // Routes accessible by both students and admins
-    Route::middleware('student.or.admin')->group(function () {
-        // List entries (filtered by role in controller)
-        Route::get(   'financial-data',      [FinancialDataController::class, 'index']);
-
-        // View, update, and delete specific entry
-        Route::get(   'financial-data/{id}', [FinancialDataController::class, 'show']);
-        Route::put(   'financial-data/{id}', [FinancialDataController::class, 'update']);
-        Route::patch( 'financial-data/{id}', [FinancialDataController::class, 'update']);
-        Route::delete('financial-data/{id}', [FinancialDataController::class, 'destroy']);
-    });
-
-    // Create entry (student only)
-    Route::post('financial-data', [FinancialDataController::class, 'store']);
-
-     // ============================================
-    // GOALS ROUTES
-    // ============================================
-    
-    // Get goal metadata (types and statuses) - available to all
-    Route::get('goals/metadata', [GoalController::class, 'metadata']);
-
-    // Get my goals summary (student only) - Must come before {id} route
-    Route::get('goals/my-summary', [GoalController::class, 'mySummary']);
-
-    // Add progress to goal (student only) - Must come before general {id} routes
-    Route::post('goals/{id}/add-progress', [GoalController::class, 'addProgress']);
-
-    // Update goal status automatically (student only) - Must come before general {id} routes
-    Route::post('goals/{id}/update-status', [GoalController::class, 'updateStatus']);
-
-    // Create goal (student only)
-    Route::post('goals', [GoalController::class, 'store']);
-
-    // Update goal (student only)
-    Route::put('goals/{id}', [GoalController::class, 'update']);
-    Route::patch('goals/{id}', [GoalController::class, 'update']);
-
-    // Delete goal (student only)
-    Route::delete('goals/{id}', [GoalController::class, 'destroy']);
-
-    // Routes accessible by both students and admins (READ operations)
-    Route::middleware('student.or.admin')->group(function () {
-        // List goals (filtered by role in controller)
-        Route::get('goals', [GoalController::class, 'index']);
-        
-        // View specific goal
-        Route::get('goals/{id}', [GoalController::class, 'show']);
-    });
-
-    // ============================================
-    // BUDGETS ROUTES
-    // ============================================
-    
-    // Get budget metadata (categories and statuses) - available to all
-    Route::get('budgets/metadata', [BudgetController::class, 'metadata']);
-
-    // Get budget categories - available to all (DEPRECATED - use metadata instead)
-    Route::get('budgets/categories', [BudgetController::class, 'categories']);
-
-    // Get my budget summary (student only) - Must come before {id} route
-    Route::get('budgets/my-summary', [BudgetController::class, 'mySummary']);
-
-    // Sync actual spent from financial data (student only) - Must come before {id} route
-    Route::post('budgets/{id}/sync-actual-spent', [BudgetController::class, 'syncActualSpent']);
-
-    // Update budget status automatically (student only) - Must come before general {id} routes
-    Route::post('budgets/{id}/update-status', [BudgetController::class, 'updateStatus']);
-
-    // Create budget (student only)
-    Route::post('budgets', [BudgetController::class, 'store']);
-
-    // Update budget (student only)
-    Route::put('budgets/{id}', [BudgetController::class, 'update']);
-    Route::patch('budgets/{id}', [BudgetController::class, 'update']);
-
-    // Delete budget (student only)
-    Route::delete('budgets/{id}', [BudgetController::class, 'destroy']);
-
-    // Routes accessible by both students and admins (READ operations)
-    Route::middleware('student.or.admin')->group(function () {
-        // List budgets (filtered by role in controller)
-        Route::get('budgets', [BudgetController::class, 'index']);
-        
-        // View specific budget
-        Route::get('budgets/{id}', [BudgetController::class, 'show']);
     });
 
     // ============================================
@@ -226,36 +129,17 @@ Route::middleware('auth:sanctum')->group(function () {
     });
 
     // ============================================
-    // AI PREDICTION & RECOMMENDATIONS ROUTES
+    // M-PESA STATEMENT ROUTES
     // ============================================
-
-    // Check if student can generate a recommendation - Must come before other routes
-    Route::get('ai/can-generate', [AIController::class, 'canGenerateRecommendation']);
-
-    // Preview my aggregated data - Must come before other routes  
-    Route::get('ai/preview/me', [AIController::class, 'previewMyData']);
-
-    // Students generate their own AI recommendation
-    Route::post('ai/predict/me', [AIController::class, 'generateMyRecommendation'])
-        ->middleware('throttle:5,1440'); // Max 5 attempts per 24 hours
-
-    // ADMIN-ONLY ROUTES
-    Route::middleware('admin')->group(function () {
-        // Get AI health check - available to all authenticated users
-        Route::get('ai/health', [AIController::class, 'checkApiHealth']);
-
-        // Generate predictions for ALL students (batch processing - also used by cron)
-        Route::post('ai/predict/batch', [AIController::class, 'generatePredictionsForAllStudents']);
-
-        // Generate prediction for any specific student
-        Route::post('ai/predict/student/{studentId}', [AIController::class, 'generatePredictionForStudent']);
-
-        // Preview any student's aggregated data (debugging)
-        Route::get('ai/preview/student/{studentId}', [AIController::class, 'previewStudentData']);
-
-        // Get all recommendations for any student
-        Route::get('ai/recommendations/student/{studentId}', [AIController::class, 'getStudentRecommendations']);
-    });
+    Route::post('statements', [StatementController::class, 'store'])
+        ->middleware('throttle:10,60');  // 10 uploads per hour
+    Route::get('statements', [StatementController::class, 'index']);
+    Route::get('statements/insights', [StatementController::class, 'insights']);
+    Route::delete('statements/data', [StatementController::class, 'destroy']);
+    Route::get('statements/recommendations', [StatementController::class, 'recommendations'])
+        ->middleware('throttle:30,1');
+    Route::get('statements/savings-balance', [StatementController::class, 'savingsBalance']);
+    Route::put('statements/savings-balance', [StatementController::class, 'updateSavingsBalance']);
 
     // ============================================
     // SIMULATIONS ROUTES
@@ -284,6 +168,37 @@ Route::middleware('auth:sanctum')->group(function () {
         
         // View specific simulation
         Route::get('simulations/{id}', [SimulationController::class, 'show']);
+    });
+
+    // ============================================
+    // INVESTMENT SIMULATION ROUTES
+    // ============================================
+
+    // Get investment types/statistics (available to all authenticated users)
+    Route::get('investments/types', [InvestmentSimulationController::class, 'getInvestmentTypes']);
+
+    // Preview simulation without saving (available to all)
+    Route::post('investments/preview', [InvestmentSimulationController::class, 'preview']);
+
+    // Compare multiple investment scenarios
+    Route::post('investments/compare', [InvestmentSimulationController::class, 'compare']);
+
+    // Get my investment statistics (student only)
+    Route::get('investments/my-statistics', [InvestmentSimulationController::class, 'myStatistics']);
+
+    // Create investment simulation (student only)
+    Route::post('investments', [InvestmentSimulationController::class, 'store']);
+
+    // Delete investment simulation (student can delete own, admin can delete any)
+    Route::delete('investments/{id}', [InvestmentSimulationController::class, 'destroy']);
+
+    // Routes accessible by both students and admins (READ operations)
+    Route::middleware('student.or.admin')->group(function () {
+        // List simulations (filtered by role in controller)
+        Route::get('investments', [InvestmentSimulationController::class, 'index']);
+        
+        // View specific simulation
+        Route::get('investments/{id}', [InvestmentSimulationController::class, 'show']);
     });
 
     // ============================================

@@ -1,209 +1,144 @@
-from flask import Flask, request, jsonify
-from flask_cors import CORS
-import joblib
-import pandas as pd
-import numpy as np
+"""
+PennyWise investment simulator API (port 5000).
+
+Called only by the Laravel backend, never by the browser, so it has no CORS and returns no internals.
+The statement analysis service is a separate app (statement_api.py).
+
+"""
+import logging
+import math
+
+from flask import Flask, jsonify, request
+
+from investment import ALLOWED_FREQUENCIES, load_assumptions, simulate, statistics_for_display
+from investment.engine import MAX_MONTHS
+
+logging.basicConfig(level=logging.INFO)
+log = logging.getLogger("pennywise.investment")
 
 app = Flask(__name__)
-CORS(app)
 
-# Load the trained model
-model = joblib.load("finance_behavior_classifier_v3_scaled.pkl")
+# Fail loudly at start-up if the assumptions file is missing or malformed.
+ASSUMPTIONS = load_assumptions()
+VALID_TYPES = tuple(ASSUMPTIONS["assets"].keys())
+MAX_AMOUNT = 999_999_999.99
 
-def safe_float(value, default=0.0):
-    """Safely convert value to float"""
-    try:
-        if value is None or value == '':
-            return default
-        return float(value)
-    except (ValueError, TypeError):
+
+class BadInput(Exception):
+    pass
+
+
+def _number(data, field, *, required=False, default=None, minimum=None, maximum=MAX_AMOUNT, integer=False):
+    """Read a finite number from the JSON body or raise BadInput with a message a student could read."""
+    value = data.get(field)
+    if value is None or value == "":
+        if required:
+            raise BadInput(f"Missing required field: {field}")
         return default
-
-def safe_int(value, default=0):
-    """Safely convert value to int"""
+    if isinstance(value, bool):
+        raise BadInput(f"{field} must be a number")
     try:
-        if value is None or value == '':
-            return default
-        return int(value)
-    except (ValueError, TypeError):
-        return default
+        number = float(value)
+    except (TypeError, ValueError):
+        raise BadInput(f"{field} must be a number")
+    if not math.isfinite(number):
+        raise BadInput(f"{field} must be a number")
+    if integer:
+        if number != int(number):
+            raise BadInput(f"{field} must be a whole number")
+        number = int(number)
+    if minimum is not None and number < minimum:
+        raise BadInput(f"{field} is too small")
+    if maximum is not None and number > maximum:
+        raise BadInput(f"{field} is too large")
+    return number
 
-def safe_string(value, default=''):
-    """Safely convert value to string"""
+
+def _error(message, status=400):
+    return jsonify({"status": "error", "message": message}), status
+
+
+@app.route("/api/investment/simulate", methods=["POST"])
+def simulate_investment():
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict) or not data:
+        return _error("No JSON data received")
+
     try:
-        if value is None:
-            return default
-        return str(value).strip()
-    except:
-        return default
+        investment_type = str(data.get("investment_type", "")).strip().lower()
+        if not investment_type:
+            raise BadInput("Missing required field: investment_type")
+        if investment_type not in VALID_TYPES:
+            raise BadInput(f"Invalid investment type. Must be one of: {', '.join(VALID_TYPES)}")
 
-def generate_recommendation(data, predicted_label, confidence):
-    """
-    Generate recommendation based on prediction
-    """
-    monthly_income = safe_float(data.get('monthly_income', 0))
-    total_expenses = safe_float(data.get('total_expenses', 0))
-    savings = monthly_income - total_expenses
-    
-    top_cat = safe_string(data.get('top_spending_category', 'expenses'))
-    top_amount = safe_float(data.get('top_category_amount', 0))
-    
-    if predicted_label == 'overspending':
-        impact = round(0.10 * top_amount, 2)
-        title = f"Reduce {top_cat} spending"
-        text = f"You're spending {total_expenses:,.0f} KES against income of {monthly_income:,.0f} KES. Consider reducing {top_cat} by 10% to save {impact:,.0f} KES/month."
-        reasoning = f"Expense-to-income ratio: {(total_expenses/monthly_income if monthly_income > 0 else 0)*100:.0f}%. Top category: {top_cat}."
-        
-    elif predicted_label == 'under_saving':
-        target_save = round(0.10 * monthly_income, 2)
-        impact = target_save
-        title = "Boost your savings rate"
-        text = f"You're currently saving {savings:,.0f} KES/month. Try to save at least 10% ({target_save:,.0f} KES) by cutting discretionary spending."
-        reasoning = f"Current savings rate: {(savings/monthly_income if monthly_income > 0 else 0)*100:.1f}%. Recommended: 10-20%."
-        
-    elif predicted_label == 'saving_well':
-        additional = round(0.05 * monthly_income, 2)
-        impact = additional
-        title = "Excellent savings! Consider investing"
-        text = f"You're saving {savings:,.0f} KES/month ({(savings/monthly_income if monthly_income > 0 else 0)*100:.0f}%). Consider investing {additional:,.0f} KES extra."
-        reasoning = f"Strong savings rate detected. Current rate: {(savings/monthly_income if monthly_income > 0 else 0)*100:.0f}%."
-        
-    else:  # balanced
-        impact = 0.0
-        title = "Maintain your balanced approach"
-        text = f"Your finances are balanced. Keep tracking expenses and review spending patterns monthly."
-        reasoning = f"Expense-to-income ratio: {(total_expenses/monthly_income if monthly_income > 0 else 0)*100:.0f}%. Savings: {savings:,.0f} KES/month."
-    
-    return {
-        'title': title,
-        'recomm_text': text,
-        'category': 'Behavioral',
-        'confidence_score': round(float(confidence), 2),
-        'reasoning': reasoning,
-        'impact_estimate': float(impact),
-        'source_type': 'AI_Model',
-        'model_version': 'rf-synthetic-v2'
-    }
+        amount = _number(data, "amount_invested", required=True)
+        if amount <= 0:
+            raise BadInput("Amount invested must be greater than 0")
 
-@app.route('/predict', methods=['POST'])
-def predict():
+        duration_value = _number(data, "duration_value", required=True, integer=True)
+        if duration_value <= 0:
+            raise BadInput("Duration must be greater than 0")
+
+        unit = str(data.get("duration_unit") or "months").strip().lower()
+        if unit not in ("months", "years"):
+            raise BadInput('Duration unit must be "months" or "years"')
+        if duration_value * (12 if unit == "years" else 1) > MAX_MONTHS:
+            raise BadInput("Duration cannot be longer than 50 years")
+
+        topup = _number(data, "monthly_topup", default=0.0)
+        if topup < 0:
+            raise BadInput("Monthly top-up cannot be negative")
+
+        target = _number(data, "target_amount", default=None)
+        if target is not None and target <= 0:
+            target = None
+        if target is not None and target < amount:
+            raise BadInput("Target amount must be greater than initial investment")
+
+        frequency = str(data.get("reinvestment_frequency") or "monthly").strip().lower()
+        if frequency not in ALLOWED_FREQUENCIES:
+            raise BadInput(f"Compounding frequency must be one of: {', '.join(ALLOWED_FREQUENCIES)}")
+    except BadInput as e:
+        return _error(str(e))
+
     try:
-        data = request.get_json()
-        
-        if not data:
-            return jsonify({
-                'status': 'error',
-                'message': 'No JSON data received'
-            }), 400
-        
-        # Required fields
-        required_fields = [
-            'student_id', 'monthly_income', 'age',
-            'housing_burden', 'education_burden', 'essential_ratio',
-            'spending_concentration', 'tuition_monthly_share',
-            'housing_share', 'food_share', 'transportation_share',
-            'books_supplies_share', 'entertainment_share',
-            'personal_care_share', 'technology_share',
-            'health_wellness_share', 'miscellaneous_share',
-            'discretionary_ratio', 'gender', 'year_in_school',
-            'preferred_payment_method', 'major', 'top_spending_category'
-        ]
-        
-        missing_fields = [field for field in required_fields if field not in data]
-        if missing_fields:
-            return jsonify({
-                'status': 'error',
-                'message': f'Missing required fields: {", ".join(missing_fields)}'
-            }), 400
-        
-        student_id = safe_int(data['student_id'])
-        
-        # Prepare features for model
-        feature_data = {
-            # Numerical features
-            'monthly_income': safe_float(data['monthly_income']),
-            'age': safe_int(data['age']),
-            'housing_burden': safe_float(data['housing_burden']),
-            'education_burden': safe_float(data['education_burden']),
-            'essential_ratio': safe_float(data['essential_ratio']),
-            'spending_concentration': safe_float(data['spending_concentration']),
-            'tuition_monthly_share': safe_float(data['tuition_monthly_share']),
-            'housing_share': safe_float(data['housing_share']),
-            'food_share': safe_float(data['food_share']),
-            'transportation_share': safe_float(data['transportation_share']),
-            'books_supplies_share': safe_float(data['books_supplies_share']),
-            'entertainment_share': safe_float(data['entertainment_share']),
-            'personal_care_share': safe_float(data['personal_care_share']),
-            'technology_share': safe_float(data['technology_share']),
-            'health_wellness_share': safe_float(data['health_wellness_share']),
-            'miscellaneous_share': safe_float(data['miscellaneous_share']),
-            'discretionary_ratio': safe_float(data['discretionary_ratio']),
-            # Categorical features as STRINGS
-            'gender': safe_string(data['gender'], 'other'),
-            'year_in_school': safe_string(data['year_in_school'], 'one'),
-            'preferred_payment_method': safe_string(data['preferred_payment_method'], 'Cash'),
-            'major': safe_string(data['major'], 'Undeclared'),
-            'top_spending_category': safe_string(data['top_spending_category'], 'miscellaneous'),
-        }
-        
-        # Create DataFrame
-        df = pd.DataFrame([feature_data])
-        
-        # Ensure numeric columns are float64
-        numeric_cols = [
-            'monthly_income', 'age', 'housing_burden', 'education_burden',
-            'essential_ratio', 'spending_concentration', 'tuition_monthly_share',
-            'housing_share', 'food_share', 'transportation_share',
-            'books_supplies_share', 'entertainment_share', 'personal_care_share',
-            'technology_share', 'health_wellness_share', 'miscellaneous_share',
-            'discretionary_ratio'
-        ]
-        
-        for col in numeric_cols:
-            df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0.0).astype('float64')
-        
-        # Ensure categorical columns are strings
-        categorical_cols = ['gender', 'year_in_school', 'preferred_payment_method', 
-                           'major', 'top_spending_category']
-        for col in categorical_cols:
-            df[col] = df[col].astype(str)
-        
-        # Predict
-        prediction = model.predict(df)[0]
-        probabilities = model.predict_proba(df)[0]
-        confidence = float(probabilities.max())
-        
-        print(f"[Student {student_id}] Prediction: {prediction}, Confidence: {confidence:.3f}")
-        
-        # Generate recommendation
-        recommendation = generate_recommendation(data, prediction, confidence)
-        
-        return jsonify({
-            'status': 'success',
-            'student_id': student_id,
-            'predicted_label': prediction,
-            'confidence': round(confidence, 3),
-            'recommendation': recommendation
-        })
-        
-    except Exception as e:
-        import traceback
-        error_trace = traceback.format_exc()
-        print("ERROR:", error_trace)
-        
-        return jsonify({
-            'status': 'error',
-            'message': str(e),
-            'trace': error_trace
-        }), 500
+        result = simulate(
+            ASSUMPTIONS, amount_invested=amount, duration_value=duration_value, duration_unit=unit,
+            investment_type=investment_type, monthly_topup=topup, target_amount=target,
+            reinvestment_frequency=frequency,
+        )
+    except Exception:
+        log.exception("investment simulation failed")
+        return _error("The simulation could not be completed.", 500)
 
-@app.route('/health', methods=['GET'])
-def health_check():
+    log.info("simulation type=%s months=%s", investment_type, result["investment_details"]["duration_months"])
+    return jsonify({"status": "success", "data": result}), 200
+
+
+@app.route("/api/investment/statistics", methods=["GET"])
+def investment_statistics():
     return jsonify({
-        'status': 'healthy',
-        'model_loaded': model is not None,
-        'model_version': 'rf-synthetic-v2'
-    })
+        "status": "success",
+        "data": {
+            "investment_types": statistics_for_display(ASSUMPTIONS),
+            "metadata": {
+                "currency": ASSUMPTIONS["metadata"]["currency"],
+                "last_reviewed": ASSUMPTIONS["metadata"].get("last_reviewed"),
+                "disclaimer": ASSUMPTIONS["metadata"]["disclaimer"],
+            },
+        },
+    }), 200
 
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, debug=True)
+
+@app.route("/health", methods=["GET"])
+@app.route("/api/health", methods=["GET"])
+def health_check():
+    return jsonify({"status": "healthy", "investment_assumptions": sorted(VALID_TYPES)})
+
+
+if __name__ == "__main__":
+    print("PennyWise investment simulator on http://127.0.0.1:5000")
+    print("  POST /api/investment/simulate")
+    print("  GET  /api/investment/statistics")
+    print("  GET  /health")
+    app.run(host="127.0.0.1", port=5000, debug=False)

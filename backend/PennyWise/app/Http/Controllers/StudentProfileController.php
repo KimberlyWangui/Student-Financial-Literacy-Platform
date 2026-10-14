@@ -309,4 +309,126 @@ class StudentProfileController extends Controller
             ]
         ], 200);
     }
+
+    /**
+     * Get total number of students.
+     * Accessible by: Admin only
+     */
+    public function totalStudents()
+    {
+        $currentUser = Auth::user();
+
+        // Only admins can view total students
+        if ($currentUser->role !== 'admin') {
+            return response()->json([
+                'message' => 'Unauthorized. Only admins can view this information.'
+            ], 403);
+        }
+
+        $totalStudents = User::where('role', 'student')->count();
+
+        return response()->json([
+            'message' => 'Total students retrieved successfully',
+            'data' => [
+                'total_students' => $totalStudents
+            ]
+        ], 200);
+    }
+
+    /**
+     * Get active students: those who uploaded a statement or saved a simulation recently.
+     * Accessible by: Admin only
+     */
+    public function activeStudents(Request $request)
+    {
+        $currentUser = Auth::user();
+
+        // Only admins can view active students
+        if ($currentUser->role !== 'admin') {
+            return response()->json([
+                'message' => 'Unauthorized. Only admins can view active students.'
+            ], 403);
+        }
+
+        // Get days parameter (default 30)
+        $days = $request->get('days', 30);
+        $days = min($days, 365); // Max 365 days
+
+        // Active = uploaded a statement or saved a simulation in the last N days
+        $since = now()->subDays($days);
+
+        $activeStudents = User::where('role', 'student')
+            ->where(function ($query) use ($since) {
+                $query->whereHas('statements', fn ($q) => $q->where('created_at', '>=', $since))
+                      ->orWhereHas('investmentSimulations', fn ($q) => $q->where('created_at', '>=', $since));
+            })
+            ->with('studentProfile')
+            ->withCount(['statements', 'investmentSimulations'])
+            ->withMax('statements', 'created_at')
+            ->withMax('investmentSimulations', 'created_at')
+            ->get()
+            ->map(function ($student) {
+                $lastActivity = collect([
+                    $student->statements_max_created_at,
+                    $student->investment_simulations_max_created_at,
+                ])->filter()->map(fn ($d) => \Carbon\Carbon::parse($d))->max();
+
+                return [
+                    'id' => $student->id,
+                    'name' => $student->name,
+                    'email' => $student->email,
+                    'xp_total' => $student->studentProfile->xp_total ?? 0,
+                    'level' => $student->studentProfile->xp_level ?? 0,
+                    'last_activity' => $lastActivity,
+                    'statement_count' => $student->statements_count,
+                    'simulation_count' => $student->investment_simulations_count,
+                ];
+            })
+            ->values();
+
+        return response()->json([
+            'message' => 'Active students retrieved successfully',
+            'data' => [
+                'period_days' => $days,
+                'total_active_students' => $activeStudents->count(),
+                'students' => $activeStudents
+            ]
+        ], 200);
+    }
+
+    /**
+     * Get new students (recently registered).
+     * Accessible by: Admin only
+     */
+    public function newStudents(Request $request)
+    {
+        $currentUser = Auth::user();
+
+        // Only admins can view new students
+        if ($currentUser->role !== 'admin') {
+            return response()->json([
+                'message' => 'Unauthorized. Only admins can view new students.'
+            ], 403);
+        }
+
+        // Get days parameter (default 30)
+        $days = $request->get('days', 30);
+        $days = min($days, 365); // Max 365 days
+
+        // Get new students
+        $newStudents = User::where('role', 'student')
+            ->where('created_at', '>=', now()->subDays($days))
+            ->with('studentProfile')
+            ->orderBy('created_at', 'desc')
+            ->paginate($request->get('per_page', 15));
+
+        return response()->json([
+            'message' => 'New students retrieved successfully',
+            'data' => [
+                'period_days' => $days,
+                'total_new_students' => $newStudents->total(),
+                'students' => $newStudents
+            ]
+        ], 200);
+    }
 }
