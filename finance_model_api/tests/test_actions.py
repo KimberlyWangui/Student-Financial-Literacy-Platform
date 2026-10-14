@@ -16,7 +16,7 @@ from synthetic.personas import PERSONAS
 BY_NAME = {p.name: p for p in PERSONAS}
 SEEDS = range(100, 108)
 FIELDS = {"id", "category", "title", "what", "why", "first_step", "learn", "impact_kes",
-          "confidence", "priority", "evidence"}
+          "confidence", "priority", "evidence", "simulator"}
 
 
 def fresh(df):
@@ -208,3 +208,74 @@ def test_insights_endpoint_returns_the_same_cards_as_the_engine():
     assert body["actions"] == expected
     assert "watch_fuliza" in [c["id"] for c in body["actions"]]
     assert all(FIELDS == set(c) for c in body["actions"])
+
+
+# ---- the amount suggested for the simulator ---------------------------------------------
+from statement.actions import suggest_monthly       # noqa: E402
+
+READY = dict(BASE, savings_deposits=6, net_savings_moved=6000.0, savings_return_ratio=0.1,
+             median_month_inflow=9000.0, median_month_outflow=6000.0)
+
+
+def ready_card(extra=0.0, **override):
+    m = dict(READY, **override)
+    stage = assign_stage(m, DQ, extra)
+    assert stage["stage"] == "ready_to_explore", stage["stage"]
+    return build_actions(m, DQ, stage, extra)[0]
+
+
+@pytest.mark.parametrize("inflow,outflow,expected", [
+    (9000, 6000, 600),          # leftover 3,000 -> 20% = 600
+    (9000, 6100, 550),          # 2,900 -> 580 -> rounded down to 550
+    (6000, 5750, 50),           # 250 -> 50, the smallest amount suggested
+    (6000, 5800, None),         # 200 -> 40, under KES 50
+    (6000, 6000, None),         # nothing left over
+    (6000, 7000, None),         # spends more than comes in
+    (None, 6000, None),         # too few full months to know
+    (9000, None, None),
+    (500000, 100000, 5000),     # capped
+])
+def test_suggested_monthly_amount_is_a_fifth_of_the_leftover(inflow, outflow, expected):
+    got = suggest_monthly({"median_month_inflow": inflow, "median_month_outflow": outflow})
+    assert got == expected
+
+
+def test_the_ready_card_carries_the_amount_and_a_simulator_hint():
+    c = ready_card()
+    assert c["id"] == "learn_investing_basics"
+    assert c["simulator"] == {"investment_type": "mmf", "monthly_amount": 600}
+    assert "KES 600 a month" in c["first_step"] and "a fifth" in c["first_step"]
+    assert c["evidence"]["suggested_monthly_kes"] == 600
+
+
+def test_the_ready_card_still_works_when_no_amount_can_be_suggested():
+    c = ready_card(median_month_outflow=9500.0)
+    assert c["simulator"] == {"investment_type": "mmf", "monthly_amount": None}
+    assert "KES" not in c["first_step"] and "small amount" in c["first_step"]
+    assert c["evidence"]["suggested_monthly_kes"] is None
+
+
+@pytest.mark.parametrize("persona", PERSONAS, ids=lambda p: p.name)
+def test_only_the_investing_card_has_a_simulator_hint(persona):
+    m, dq, stage = fresh(persona.build())
+    for c in build_actions(m, dq, stage):
+        if c["id"] == "learn_investing_basics":
+            assert c["simulator"]["investment_type"] == "mmf"
+        else:
+            assert c["simulator"] is None, c["id"]
+
+
+def test_nothing_is_suggested_to_a_student_with_no_buffer():
+    for m in (dict(READY, ending_balance=100.0),                          # 1 day of buffer
+              dict(READY, ending_balance=100.0, savings_deposits=0)):
+        stage = assign_stage(m, DQ)
+        assert stage["stage"] != "ready_to_explore"
+        assert all(c["simulator"] is None for c in build_actions(m, DQ, stage))
+
+
+def test_savings_balance_counts_towards_the_buffer_and_the_wording_says_so():
+    m = dict(READY, ending_balance=500.0)                                 # 5 days in the wallet alone
+    assert assign_stage(m, DQ)["stage"] != "ready_to_explore"
+    c = ready_card(extra=1500.0, ending_balance=500.0)                    # 500 + 1,500 = 20 days
+    assert "wallet and savings cover" in c["why"] and "wallet covers" not in c["why"]
+    assert "wallet covers" in ready_card()["why"]

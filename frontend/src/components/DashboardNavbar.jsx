@@ -20,11 +20,9 @@ const DashboardNavbar = ({ activePage = 'Dashboard' }) => {
 
   const navLinks = [
     { name: 'Dashboard', path: '/student/dashboard' },
-    { name: 'Finance Hub', path: '/finance-hub' },
-    { name: 'Budgets', path: '/budgets' },
     { name: 'Simulation', path: '/simulation' },
     { name: 'Recommendations', path: '/recommendations' },
-    { name: 'Goals & Badges', path: '/goals' }
+    { name: 'Badges', path: '/badges' }
   ];
 
   // Close dropdown when clicking outside

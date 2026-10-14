@@ -4,7 +4,7 @@ import './LandingPage.css';
 import HeroImage from '../assets/Hero.jpeg';
 
 // Import icons
-import { FaWallet, FaChartLine, FaLightbulb, FaTrophy } from 'react-icons/fa';
+import { FaFileAlt, FaChartLine, FaLightbulb, FaTrophy } from 'react-icons/fa';
 
 const LandingPage = () => {
   const navigate = useNavigate();
@@ -50,24 +50,24 @@ const LandingPage = () => {
 
   const features = [
     {
-      icon: <FaWallet />,
-      title: 'Smart Budgeting',
-      description: 'Track income, expenses, and categorize spending to gain full control of your finances.'
+      icon: <FaFileAlt />,
+      title: 'M-Pesa Statement Analysis',
+      description: 'Upload your M-Pesa statement and see where your money goes, in plain language. No typing in expenses by hand.'
     },
     {
       icon: <FaChartLine />,
       title: 'Investment Simulations',
-      description: 'Experiment with various investment strategies in a risk-free environment and watch your wealth grow.'
+      description: 'Try different ways of saving and investing with your own numbers. See the tax, the risk and the possible ups and downs before you use a single shilling.'
     },
     {
       icon: <FaLightbulb />,
       title: 'Personalized Guidance',
-      description: 'Receive tailored financial tips and actionable advice to build better money habits.'
+      description: 'Get clear tips based on your own statement, each with the reason behind it and one small step to take.'
     },
     {
       icon: <FaTrophy />,
-      title: 'Goals & Rewards',
-      description: 'Set financial goals, track your progress, and earn badges for every milestone achieved.'
+      title: 'Badges & Rewards',
+      description: 'Earn badges and XP for uploading your statements and trying the simulator.'
     }
   ];
 
@@ -136,8 +136,8 @@ const LandingPage = () => {
           <div className="hero-content">
             <h1 className="hero-title">Unlock Your Financial Potential</h1>
             <p className="hero-subtitle">
-              PennyWise empowers students with essential tools for budget management,
-              investment simulation, and personalized financial guidance to build a secure future.
+              PennyWise reads your M-Pesa statement and gives students clear, explainable money tips,
+              plus a simulator to learn how investing works before any real money is involved.
             </p>
             <div className="hero-buttons">
               <button onClick={handleGetStarted} className="btn-get-started">
@@ -221,7 +221,7 @@ const LandingPage = () => {
         </div>
 
         <div className="footer-bottom">
-          <p>© 2025 PennyWise. All rights reserved.</p>
+          <p>© 2026 PennyWise. All rights reserved.</p>
         </div>
       </footer>
     </div>

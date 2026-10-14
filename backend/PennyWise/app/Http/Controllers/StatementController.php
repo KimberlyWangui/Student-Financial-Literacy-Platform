@@ -7,6 +7,7 @@ use App\Models\Statement;
 use App\Models\Transaction;
 use App\Services\StatementApiClient;
 use App\Services\StatementApiException;
+use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -18,6 +19,9 @@ class StatementController extends Controller
     // Columns the Flask /v1/insights endpoint expects, in the shape /v1/parse returned them.
     /** Bump this whenever the privacy wording on the upload form changes in a way that matters. */
     public const CONSENT_VERSION = '2026-10';
+
+    /** Where the student's own profile lives. The savings balance is stored there. */
+    private const PROFILES = 'student_profiles';
 
     private const INSIGHT_COLUMNS = [
         'row_id', 'receipt_id', 'time', 'type', 'funding', 'direction',
@@ -107,7 +111,7 @@ class StatementController extends Controller
         $insights = null;
         $insightsError = null;
         try {
-            $insights = $this->buildInsights($user->id, 0.0);
+            $insights = $this->buildInsights($user->id, $this->savedBalance($user->id));
         } catch (StatementApiException $e) {
             $insightsError = ['code' => $e->errorCode, 'message' => $e->getMessage()];
         }
@@ -146,7 +150,8 @@ class StatementController extends Controller
 
     /**
      * Metrics, stage and next step from everything stored for this student.
-     * Optional ?extra_savings=N adds savings held outside the wallet (M-Shwari, Ziidi).
+     * Savings held outside the wallet (M-Shwari, Ziidi) come from the student's profile; an explicit
+     * ?extra_savings=N overrides it for that request.
      */
     public function insights(Request $request): JsonResponse
     {
@@ -158,7 +163,7 @@ class StatementController extends Controller
         $validated = $request->validate(['extra_savings' => 'sometimes|numeric|min:0|max:100000000']);
 
         try {
-            $insights = $this->buildInsights($user->id, (float) ($validated['extra_savings'] ?? 0));
+            $insights = $this->buildInsights($user->id, (float) ($validated['extra_savings'] ?? $this->savedBalance($user->id)));
         } catch (StatementApiException $e) {
             return $this->error($e->errorCode, $e->getMessage(), $e->httpStatus);
         }
@@ -184,7 +189,7 @@ class StatementController extends Controller
         }
 
         try {
-            $insights = $this->buildInsights($user->id, 0.0);
+            $insights = $this->buildInsights($user->id, $this->savedBalance($user->id));
         } catch (StatementApiException $e) {
             return $this->error($e->errorCode, $e->getMessage(), $e->httpStatus);
         }
@@ -205,15 +210,83 @@ class StatementController extends Controller
                     'count' => (clone $statements)->count(),
                     'period_start' => str_replace(' ', 'T', (string) (clone $statements)->min('period_start')),
                     'period_end' => str_replace(' ', 'T', (string) (clone $statements)->max('period_end')),
-                    'last_uploaded_at' => $latest?->created_at?->toIso8601String(),   // UTC
+                    'last_uploaded_at' => $latest?->created_at?->toIso8601String(),
                 ],
                 'stage' => $insights['stage'],
+                'savings_balance' => $this->presentBalance($user->id),
                 'data_quality' => [
                     'days_since_last' => $insights['data_quality']['days_since_last'] ?? null,
                     'last_transaction' => $insights['data_quality']['last_transaction'] ?? null,
                 ],
                 'recommendations' => $this->presentCards($user->id, $insights['actions'] ?? []),
             ],
+        ]);
+    }
+
+    /**
+     * The savings the student says they hold outside their wallet. Accessible by: students only.
+     */
+    public function savingsBalance(): JsonResponse
+    {
+        $user = Auth::user();
+        if ($user->role !== 'student') {
+            return $this->error('FORBIDDEN', 'Only students have a savings balance.', 403);
+        }
+
+        return response()->json(['status' => 'success', 'data' => $this->presentBalance($user->id)]);
+    }
+
+    /**
+     * Save (or clear, with null) the student's savings balance, then refresh their cards so the new
+     * number is used straight away. The balance is saved even if the refresh fails.
+     * Accessible by: students only.
+     */
+    public function updateSavingsBalance(Request $request): JsonResponse
+    {
+        $user = Auth::user();
+        if ($user->role !== 'student') {
+            return $this->error('FORBIDDEN', 'Only students can save a savings balance.', 403);
+        }
+
+        $validated = $request->validate([
+            'savings_balance' => 'present|nullable|numeric|min:0|max:100000000',
+        ], [
+            'savings_balance.numeric' => 'Enter your savings as a number, for example 2500.',
+            'savings_balance.min' => 'Your savings cannot be a negative amount.',
+            'savings_balance.max' => 'That amount looks too large. Please check it.',
+            'savings_balance.present' => 'Send your savings amount, or null to remove it.',
+        ]);
+
+        $profile = DB::table(self::PROFILES)->where('student_id', $user->id);
+        if (! $profile->exists()) {
+            return $this->error('PROFILE_REQUIRED', 'Please complete your student profile first, then add your savings.', 422);
+        }
+
+        $value = $validated['savings_balance'];
+        $profile->update([
+            'savings_balance' => $value === null ? null : round((float) $value, 2),
+            'savings_balance_updated_at' => $value === null ? null : now(),
+        ]);
+
+        // Recompute the cards with the new number. A failure here must not undo the save.
+        $refreshed = false;
+        try {
+            $insights = $this->buildInsights($user->id, $this->savedBalance($user->id));
+            if ($insights !== null) {
+                $this->syncRecommendations($user->id, $insights);
+                $refreshed = true;
+            }
+        } catch (StatementApiException $e) {
+            Log::warning('Cards not refreshed after savings update', ['code' => $e->errorCode]);
+        } catch (\Throwable $e) {
+            Log::error('Cards not refreshed after savings update', ['error' => get_class($e)]);
+        }
+
+        return response()->json([
+            'status' => 'success',
+            'message' => $value === null ? 'Savings amount removed.' : 'Savings amount saved.',
+            'data' => $this->presentBalance($user->id),
+            'cards_refreshed' => $refreshed,
         ]);
     }
 
@@ -242,6 +315,26 @@ class StatementController extends Controller
     }
 
     // ------------------------------------------------------------------------------------------
+
+    /** The savings the student entered, or 0 when they have not entered any. */
+    private function savedBalance(int $userId): float
+    {
+        return (float) (DB::table(self::PROFILES)->where('student_id', $userId)->value('savings_balance') ?? 0);
+    }
+
+    /** {amount, updated_at} for the page. amount is null until the student enters something. */
+    private function presentBalance(int $userId): array
+    {
+        $row = DB::table(self::PROFILES)->where('student_id', $userId)
+            ->first(['savings_balance', 'savings_balance_updated_at']);
+
+        return [
+            'amount' => $row?->savings_balance === null ? null : (float) $row->savings_balance,
+            'updated_at' => $row?->savings_balance_updated_at
+                ? Carbon::parse($row->savings_balance_updated_at)->toIso8601String()
+                : null,
+        ];
+    }
 
     /**
      * Read the student's stored rows oldest first (time, then id) and ask Flask for insights.
@@ -357,6 +450,7 @@ class StatementController extends Controller
                 'first_step' => $c['first_step'],
                 'learn' => $c['learn'] ?? null,
                 'impact_kes' => $c['impact_kes'] ?? null,
+                'simulator' => $c['simulator'] ?? null,     // {investment_type, monthly_amount} for the "try the simulator" button
                 'status' => $row?->status ?? 'pending',
                 'feedback' => $row?->feedback,
                 'created_at' => $row?->created_at?->toIso8601String(),

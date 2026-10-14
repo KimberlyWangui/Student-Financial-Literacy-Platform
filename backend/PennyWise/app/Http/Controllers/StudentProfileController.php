@@ -336,7 +336,7 @@ class StudentProfileController extends Controller
     }
 
     /**
-     * Get active students (those with recent activity).
+     * Get active students: those who uploaded a statement or saved a simulation recently.
      * Accessible by: Admin only
      */
     public function activeStudents(Request $request)
@@ -354,30 +354,37 @@ class StudentProfileController extends Controller
         $days = $request->get('days', 30);
         $days = min($days, 365); // Max 365 days
 
-        // Get active students with their last activity
+        // Active = uploaded a statement or saved a simulation in the last N days
+        $since = now()->subDays($days);
+
         $activeStudents = User::where('role', 'student')
-            ->whereHas('financialData', function ($query) use ($days) {
-                $query->where('created_at', '>=', now()->subDays($days));
+            ->where(function ($query) use ($since) {
+                $query->whereHas('statements', fn ($q) => $q->where('created_at', '>=', $since))
+                      ->orWhereHas('investmentSimulations', fn ($q) => $q->where('created_at', '>=', $since));
             })
-            ->with([
-                'studentProfile',
-                'financialData' => function ($query) {
-                    $query->latest()->take(1);
-                }
-            ])
+            ->with('studentProfile')
+            ->withCount(['statements', 'investmentSimulations'])
+            ->withMax('statements', 'created_at')
+            ->withMax('investmentSimulations', 'created_at')
             ->get()
             ->map(function ($student) {
-                $lastActivity = $student->financialData->first();
+                $lastActivity = collect([
+                    $student->statements_max_created_at,
+                    $student->investment_simulations_max_created_at,
+                ])->filter()->map(fn ($d) => \Carbon\Carbon::parse($d))->max();
+
                 return [
                     'id' => $student->id,
                     'name' => $student->name,
                     'email' => $student->email,
                     'xp_total' => $student->studentProfile->xp_total ?? 0,
                     'level' => $student->studentProfile->xp_level ?? 0,
-                    'last_activity' => $lastActivity ? $lastActivity->created_at : null,
-                    'transaction_count' => $student->financialData()->count(),
+                    'last_activity' => $lastActivity,
+                    'statement_count' => $student->statements_count,
+                    'simulation_count' => $student->investment_simulations_count,
                 ];
-            });
+            })
+            ->values();
 
         return response()->json([
             'message' => 'Active students retrieved successfully',

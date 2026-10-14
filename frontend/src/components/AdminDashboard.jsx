@@ -6,16 +6,10 @@ import './AdminDashboard.css';
 import {
   LineChart,
   Line,
-  BarChart,
-  Bar,
-  PieChart,
-  Pie,
-  Cell,
   XAxis,
   YAxis,
   CartesianGrid,
   Tooltip,
-  Legend,
   ResponsiveContainer
 } from 'recharts';
 
@@ -34,10 +28,6 @@ const AdminDashboard = () => {
     activePercentage: '0%',
     newToday: 0,
     newComparison: '+0',
-    financialEntries: 12450,
-    entriesToday: 230,
-    activeGoals: 5123,
-    goalsCreated: 45,
     badgesEarned: 1234,
     badgesToday: 18
   });
@@ -123,70 +113,37 @@ const AdminDashboard = () => {
     { day: 'Sun', users: 152 }
   ];
 
-  // Financial activity chart data
-  const financialActivityData = [
-    { month: 'Jan', income: 450000, expenses: 380000 },
-    { month: 'Feb', income: 520000, expenses: 420000 },
-    { month: 'Mar', income: 480000, expenses: 390000 },
-    { month: 'Apr', income: 610000, expenses: 480000 },
-    { month: 'May', income: 580000, expenses: 450000 },
-    { month: 'Jun', income: 650000, expenses: 510000 }
-  ];
-
-  // Goal status distribution
-  const goalStatusData = [
-    { name: 'Completed', value: 1245, color: '#10b981' },
-    { name: 'In Progress', value: 2890, color: '#3b82f6' },
-    { name: 'Missed', value: 988, color: '#ef4444' }
-  ];
-
   // Top badges
   const topBadges = [
-    { name: 'First Budget', count: 234, icon: '🎯' },
-    { name: 'Savings Star', count: 189, icon: '⭐' },
-    { name: 'Goal Achiever', count: 156, icon: '🏆' },
-    { name: 'Expense Tracker', count: 142, icon: '📊' },
-    { name: 'Budget Master', count: 98, icon: '👑' }
-  ];
+    { name: 'First Statement', count: 234, icon: '🎯' },
+    { name: 'Simulation Starter', count: 189, icon: '⭐' },
+    { name: 'Statement Regular', count: 156, icon: '🏆' },
+    { name: 'Option Explorer', count: 98, icon: '📊' },
+    { name: 'Tried Them All', count: 42, icon: '👑' }
+  ]
 
   // Recent activities
   const recentActivities = [
     { type: 'registration', user: 'Alice Johnson', time: '2 minutes ago', icon: 'user-plus' },
     { type: 'badge', user: 'Bob Smith', badge: 'Savings Champion', time: '5 minutes ago', icon: 'award' },
-    { type: 'goal', user: 'Charlie Brown', goal: 'Emergency Fund', time: '15 minutes ago', icon: 'target' },
-    { type: 'transaction', user: 'Diana Prince', amount: 'KES 5,000', time: '23 minutes ago', icon: 'dollar-sign' },
-    { type: 'admin', action: 'Updated badge "Budget Master"', time: '1 hour ago', icon: 'settings' }
+    { type: 'statement', user: 'Charlie Brown', time: '15 minutes ago', icon: 'target' },
+    { type: 'simulation', user: 'Diana Prince', time: '23 minutes ago', icon: 'target' },
+    { type: 'admin', action: 'Updated badge "Simulation Pro"', time: '1 hour ago', icon: 'settings' }
   ];
 
   // System alerts
   const systemAlerts = [
     { level: 'warning', message: '5 users with inactive accounts (90+ days)', action: 'Review Users' },
-    { level: 'info', message: 'AI recommendation success rate: 68% (target: 75%)', action: 'View Analytics' },
     { level: 'success', message: 'System performance: All services running normally', action: null }
   ];
 
-  // Financial insights
-  const financialInsights = {
-    totalIncome: 2450000,
-    totalExpenses: 1875000,
-    avgBalance: 4850,
-    totalSavings: 575000,
-    topCategories: [
-      { name: 'Housing', percentage: 35 },
-      { name: 'Food', percentage: 28 },
-      { name: 'Transport', percentage: 18 },
-      { name: 'Entertainment', percentage: 12 },
-      { name: 'Other', percentage: 7 }
-    ]
-  };
-
   // Gamification stats
   const gamificationStats = {
-    totalBadges: 25,
+    totalBadges: 7,
     totalEarned: 1234,
     totalXP: 45670,
-    mostEarned: { name: 'First Budget', count: 234 },
-    rarest: { name: 'Master Saver', count: 3 },
+    mostEarned: { name: 'First Statement', count: 234 },
+    rarest: { name: 'Tried Them All', count: 3 },
     topStudents: [
       { name: 'Alice Johnson', xp: 850, rank: 1 },
       { name: 'Bob Smith', xp: 720, rank: 2 },
@@ -200,15 +157,6 @@ const AdminDashboard = () => {
 
   const formatTime = (date) => {
     return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-  };
-
-  const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('en-KE', { 
-      style: 'currency', 
-      currency: 'KES',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0
-    }).format(amount);
   };
 
   const getActivityIcon = (type) => {
@@ -368,37 +316,6 @@ const AdminDashboard = () => {
               </div>
             </div>
 
-            {/* Financial Entries Card (Not connected yet) */}
-            <div className="metric-card">
-              <div className="metric-icon entries">
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <line x1="12" y1="1" x2="12" y2="23"></line>
-                  <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
-                </svg>
-              </div>
-              <div className="metric-content">
-                <p className="metric-label">Financial Data Entries</p>
-                <h3 className="metric-value">{metrics.financialEntries.toLocaleString()}</h3>
-                <p className="metric-trend neutral">{metrics.entriesToday} entries today</p>
-              </div>
-            </div>
-
-            {/* Goals Card (Not connected yet) */}
-            <div className="metric-card">
-              <div className="metric-icon goals">
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <circle cx="12" cy="12" r="10"></circle>
-                  <circle cx="12" cy="12" r="6"></circle>
-                  <circle cx="12" cy="12" r="2"></circle>
-                </svg>
-              </div>
-              <div className="metric-content">
-                <p className="metric-label">Goals Created</p>
-                <h3 className="metric-value">{metrics.activeGoals.toLocaleString()}</h3>
-                <p className="metric-trend neutral">{metrics.goalsCreated} active now</p>
-              </div>
-            </div>
-
             {/* Badges Card (Not connected yet) */}
             <div className="metric-card">
               <div className="metric-icon badges">
@@ -443,61 +360,6 @@ const AdminDashboard = () => {
                       activeDot={{ r: 7 }}
                     />
                   </LineChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-
-            {/* Financial Activity Chart */}
-            <div className="chart-card">
-              <div className="chart-header">
-                <h3 className="chart-title">Financial Activity</h3>
-              </div>
-              <div className="chart-content">
-                <ResponsiveContainer width="100%" height={250}>
-                  <BarChart data={financialActivityData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                    <XAxis dataKey="month" stroke="#6b7280" />
-                    <YAxis stroke="#6b7280" />
-                    <Tooltip 
-                      contentStyle={{
-                        backgroundColor: 'white',
-                        border: '1px solid #e5e7eb',
-                        borderRadius: '8px'
-                      }}
-                      formatter={(value) => formatCurrency(value)}
-                    />
-                    <Legend />
-                    <Bar dataKey="income" fill="#10b981" radius={[8, 8, 0, 0]} />
-                    <Bar dataKey="expenses" fill="#ef4444" radius={[8, 8, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-
-            {/* Goal Status Chart */}
-            <div className="chart-card">
-              <div className="chart-header">
-                <h3 className="chart-title">Goal Completion Status</h3>
-              </div>
-              <div className="chart-content">
-                <ResponsiveContainer width="100%" height={250}>
-                  <PieChart>
-                    <Pie
-                      data={goalStatusData}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={60}
-                      outerRadius={90}
-                      paddingAngle={5}
-                      dataKey="value"
-                    >
-                      {goalStatusData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
-                      ))}
-                    </Pie>
-                    <Tooltip />
-                    <Legend />
-                  </PieChart>
                 </ResponsiveContainer>
               </div>
             </div>
@@ -551,11 +413,11 @@ const AdminDashboard = () => {
                         {activity.type === 'badge' && (
                           <p><strong>{activity.user}</strong> earned "{activity.badge}" badge</p>
                         )}
-                        {activity.type === 'goal' && (
-                          <p><strong>{activity.user}</strong> completed goal "{activity.goal}"</p>
+                        {activity.type === 'statement' && (
+                          <p><strong>{activity.user}</strong> uploaded a statement</p>
                         )}
-                        {activity.type === 'transaction' && (
-                          <p><strong>{activity.user}</strong> added {activity.amount} income</p>
+                        {activity.type === 'simulation' && (
+                          <p><strong>{activity.user}</strong> saved a simulation</p>
                         )}
                         {activity.type === 'admin' && (
                           <p>Admin {activity.action}</p>
@@ -564,44 +426,6 @@ const AdminDashboard = () => {
                       </div>
                     </div>
                   ))}
-                </div>
-              </div>
-
-              {/* Financial Insights */}
-              <div className="dashboard-card">
-                <div className="card-header">
-                  <h3 className="card-title">Financial Insights</h3>
-                </div>
-                <div className="insights-content">
-                  <div className="insight-row">
-                    <span className="insight-label">Total Income (All Students):</span>
-                    <span className="insight-value">{formatCurrency(financialInsights.totalIncome)}</span>
-                  </div>
-                  <div className="insight-row">
-                    <span className="insight-label">Total Expenses (All Students):</span>
-                    <span className="insight-value">{formatCurrency(financialInsights.totalExpenses)}</span>
-                  </div>
-                  <div className="insight-row">
-                    <span className="insight-label">Average Balance per Student:</span>
-                    <span className="insight-value">{formatCurrency(financialInsights.avgBalance)}</span>
-                  </div>
-                  <div className="insight-row">
-                    <span className="insight-label">Total Savings:</span>
-                    <span className="insight-value success">{formatCurrency(financialInsights.totalSavings)}</span>
-                  </div>
-                  
-                  <div className="categories-section">
-                    <h4 className="categories-title">Top Expense Categories:</h4>
-                    {financialInsights.topCategories.map((category, index) => (
-                      <div key={index} className="category-item">
-                        <div className="category-info">
-                          <span className="category-number">{index + 1}.</span>
-                          <span className="category-name">{category.name}</span>
-                        </div>
-                        <span className="category-percentage">{category.percentage}%</span>
-                      </div>
-                    ))}
-                  </div>
                 </div>
               </div>
             </div>

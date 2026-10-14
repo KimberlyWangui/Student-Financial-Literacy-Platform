@@ -5,251 +5,131 @@ import DashboardNavbar from '../components/DashboardNavbar';
 import DashboardFooter from '../components/DashboardFooter';
 import api from '../api/axios';
 import './StudentDashboard.css';
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  Legend,
-  ResponsiveContainer,
-  Cell
-} from 'recharts';
+
+// Where the pages live in your router (see App.jsx).
+const RECOMMENDATIONS_PATH = '/recommendations';
+const SIMULATOR_PATH = '/simulation';
+const BADGES_PATH = '/badges';
+
+const STAGE_INFO = {
+  not_enough_data: { label: 'We need more data', blurb: 'Add more of your statement so we can say something useful.' },
+  short_of_cash: { label: 'Cash is tight', blurb: 'Your wallet often runs low before the next deposit.' },
+  stable: { label: 'Stable', blurb: 'Your spending is steady. The next step is a cushion.' },
+  building_habit: { label: 'Building a saving habit', blurb: 'You already save. Let it grow.' },
+  ready_to_explore: { label: 'Ready to explore', blurb: 'You have a buffer and a saving habit.' },
+};
+
+const formatKes = (n) => `KES ${Number(n).toLocaleString('en-US', { maximumFractionDigits: 0 })}`;
+
+// Statement times are Nairobi wall-clock times without a zone, so only the date is shown.
+const formatDay = (iso) => {
+  if (!iso) return '';
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime())
+    ? ''
+    : d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+};
+
+// Full ISO timestamps with an offset: always show the day in Nairobi time.
+const formatSavedDay = (iso) => {
+  if (!iso) return '';
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime())
+    ? ''
+    : d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Africa/Nairobi' });
+};
+
+// One sentence about a typical month. Returns null when the engine could not work one out.
+const typicalMonthSentence = (t) => {
+  if (!t || t.inflow == null || t.outflow == null) return null;
+  const base = `In a typical month about ${formatKes(t.inflow)} comes in and ${formatKes(t.outflow)} goes out`;
+  return t.leftover > 0
+    ? `${base}, which leaves you about ${formatKes(t.leftover)}.`
+    : `${base}, so a typical month leaves you nothing extra.`;
+};
+
 
 const StudentDashboard = () => {
   const navigate = useNavigate();
   const user = authService.getCurrentUser();
-  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
-  // State for real data
-  const [budgetData, setBudgetData] = useState({
-    totalBudget: 0,
-    totalIncome: 0,
-    totalExpenses: 0,
-    currentBalance: 0
-  });
-  const [recentTransactions, setRecentTransactions] = useState([]);
-  const [loading, setLoading] = useState(true);
-  
-  // State for latest recommendation
-  const [latestRecommendation, setLatestRecommendation] = useState(null);
-  const [recommendationLoading, setRecommendationLoading] = useState(true);
+  // 'loading' | 'ok' | 'none' (no statement yet) | 'error'
+  const [recStatus, setRecStatus] = useState('loading');
+  const [rec, setRec] = useState(null);
 
-  // State for financial goals
-  const [financialGoals, setFinancialGoals] = useState([]);
-  const [goalsLoading, setGoalsLoading] = useState(true);
+  // Badges: { status: 'loading'|'ok'|'error', total, level, xp, newly }
+  const [badges, setBadges] = useState({ status: 'loading', total: 0, level: 0, xp: 0, newly: 0 });
 
   useEffect(() => {
-    fetchDashboardData();
-    fetchLatestRecommendation();
-    fetchFinancialGoals();
+    loadRecommendations();
+    loadBadges();
   }, []);
 
-  const fetchFinancialGoals = async () => {
-  setGoalsLoading(true);
-  try {
-    const response = await api.get('/goals', {
-      params: { 
-        per_page: 3,
-        status: 'in-progress' // Filter for in-progress goals in the backend
-      }
-    });
-    
-    console.log('Goals Response:', response.data);
-    
-    let goalsData = [];
-    if (response.data && response.data.data) {
-      if (Array.isArray(response.data.data.data)) {
-        goalsData = response.data.data.data;
-      } else if (Array.isArray(response.data.data)) {
-        goalsData = response.data.data;
-      }
-    }
-    
-    // Limit to 3 goals (already filtered by backend)
-    const activeGoals = goalsData.slice(0, 3);
-    
-    console.log('Active Goals:', activeGoals);
-    setFinancialGoals(activeGoals);
-  } catch (err) {
-    console.error('Error fetching financial goals:', err);
-    setFinancialGoals([]);
-  } finally {
-    setGoalsLoading(false);
-  }
-};
-
-  const fetchLatestRecommendation = async () => {
-    setRecommendationLoading(true);
+  const loadRecommendations = async () => {
+    setRecStatus('loading');
     try {
-      const response = await api.get('/recommendations', {
-        params: { per_page: 1 }
-      });
-      
-      console.log('Recommendations Response:', response.data);
-      
-      let recommendation = null;
-      if (response.data && response.data.data) {
-        if (response.data.data.data && Array.isArray(response.data.data.data) && response.data.data.data.length > 0) {
-          recommendation = response.data.data.data[0];
-        } else if (Array.isArray(response.data.data) && response.data.data.length > 0) {
-          recommendation = response.data.data[0];
-        }
-      }
-      
-      setLatestRecommendation(recommendation);
-      console.log('Latest Recommendation:', recommendation);
+      const response = await api.get('/statements/recommendations');
+      setRec(response.data?.data || null);
+      setRecStatus(response.data?.data ? 'ok' : 'error');
     } catch (err) {
-      console.error('Error fetching latest recommendation:', err);
-    } finally {
-      setRecommendationLoading(false);
+      if (err.response?.status === 404 && err.response?.data?.code === 'NO_STATEMENT') {
+        setRec(null);
+        setRecStatus('none');
+      } else {
+        setRecStatus('error');
+      }
     }
   };
 
-  const fetchDashboardData = async () => {
-    setLoading(true);
+  // Award anything newly earned (a failure here is ignored), then read the totals.
+  const loadBadges = async () => {
+    let newly = 0;
     try {
-      // Fetch budget summary
-      const budgetResponse = await api.get('/budgets/my-summary');
-      
-      // Fetch financial summary
-      const financialResponse = await api.get('/financial-data/my-summary');
-      
-      // Fetch recent transactions
-      const transactionsResponse = await api.get('/financial-data', {
-        params: { per_page: 6 }
-      });
-
-      console.log('Budget Response:', budgetResponse.data);
-      console.log('Financial Response:', financialResponse.data);
-
-      // Process financial data FIRST
-      let totalIncome = 0;
-      let totalExpenses = 0;
-      let balance = 0;
-
-      if (financialResponse.data && financialResponse.data.data) {
-        const financialData = financialResponse.data.data;
-        
-        // Check if summary exists
-        if (financialData.summary) {
-          // Remove any commas and parse the values
-          const incomeStr = String(financialData.summary.total_income).replace(/,/g, '');
-          const expenseStr = String(financialData.summary.total_expenses).replace(/,/g, '');
-          const balanceStr = String(financialData.summary.balance).replace(/,/g, '');
-          
-          totalIncome = parseFloat(incomeStr) || 0;
-          totalExpenses = parseFloat(expenseStr) || 0;
-          balance = parseFloat(balanceStr) || 0;
-          
-          console.log('Parsed Financial Data:', {
-            totalIncome,
-            totalExpenses,
-            balance
-          });
-        }
-      }
-
-      // Process budget data
-      let totalBudget = 0;
-      
-      if (budgetResponse.data && budgetResponse.data.data) {
-        const budgetSummary = budgetResponse.data.data;
-        
-        // Get total budgeted amount
-        if (budgetSummary.total_budgets) {
-          totalBudget = parseFloat(budgetSummary.total_budgets) || 0;
-        } else if (budgetSummary.financial_summary && budgetSummary.financial_summary.total_budgeted_amount) {
-          totalBudget = parseFloat(budgetSummary.financial_summary.total_budgeted_amount) || 0;
-        }
-        
-        console.log('Total Budget:', totalBudget);
-      }
-
-      setBudgetData({
-        totalBudget: totalBudget,
-        totalIncome: totalIncome,
-        totalExpenses: totalExpenses,
-        currentBalance: balance
-      });
-
-      // Process transactions
-      let transactionData = [];
-      if (transactionsResponse.data && transactionsResponse.data.data) {
-        if (Array.isArray(transactionsResponse.data.data.data)) {
-          transactionData = transactionsResponse.data.data.data;
-        } else if (Array.isArray(transactionsResponse.data.data)) {
-          transactionData = transactionsResponse.data.data;
-        }
-      }
-      setRecentTransactions(transactionData);
-
+      const check = await api.post('/badges/check-my-badges');
+      newly = check.data?.data?.total_new_badges || 0;
     } catch (err) {
-      console.error('Error fetching dashboard data:', err);
-      console.error('Error details:', err.response?.data);
-    } finally {
-      setLoading(false);
+      // the badge check is a bonus; still show what is already earned
     }
-  };
-
-  const handleLogout = async () => {
-    if (isLoggingOut) return;
-    
-    setIsLoggingOut(true);
-    
     try {
-      await authService.logout();
-      navigate('/', { 
-        replace: true,
-        state: { message: 'You have been logged out successfully.' }
+      const response = await api.get('/badges/my-badges');
+      const xp = response.data?.summary?.xp_info || {};
+      setBadges({
+        status: 'ok',
+        total: response.data?.summary?.total_badges ?? (response.data?.data || []).length,
+        level: xp.level || 0,
+        xp: xp.total_xp || 0,
+        newly,
       });
-    } catch (error) {
-      console.error('Logout error:', error);
-      navigate('/', { replace: true });
-    } finally {
-      setIsLoggingOut(false);
+    } catch (err) {
+      setBadges({ status: 'error', total: 0, level: 0, xp: 0, newly: 0 });
     }
   };
 
-  const formatDate = (dateString) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: '2-digit' });
-  };
+  const stage = rec?.stage;
+  const stageInfo = stage ? STAGE_INFO[stage.stage] || { label: stage.stage, blurb: '' } : null;
+  const cards = rec?.recommendations || [];
+  const topCard = cards[0] || null;
+  const isStale = cards.some((c) => c.rule_id === 'upload_recent_statement');
+  const simulatorHint = cards.map((c) => c.simulator).find((s) => s && s.monthly_amount) || null;
+  const typical = typicalMonthSentence(rec?.typical_month);
+  const savings = rec?.savings_balance?.amount;
 
-  const calculateProgress = (current, target) => {
-    if (target === 0) return 0;
-    return Math.min((current / target) * 100, 100);
-  };
-
-  // Prepare data for bar chart
-  const chartData = [
-    {
-      name: 'Budget',
-      amount: budgetData.totalBudget,
-      fill: '#4c6ef5'
-    },
-    {
-      name: 'Income',
-      amount: budgetData.totalIncome,
-      fill: '#10b981'
-    },
-    {
-      name: 'Expenses',
-      amount: budgetData.totalExpenses,
-      fill: '#ef4444'
+  const openSimulator = () => {
+    if (simulatorHint) {
+      navigate(SIMULATOR_PATH, {
+        state: { prefill: { investment_type: simulatorHint.investment_type, monthly_amount: simulatorHint.monthly_amount } },
+      });
+    } else {
+      navigate(SIMULATOR_PATH);
     }
-  ];
-
-  console.log('Chart Data:', chartData);
+  };
 
   return (
     <div className="student-dashboard-page">
       <DashboardNavbar activePage="Dashboard" />
-      
+
       <main className="dashboard-main">
         <div className="dashboard-container">
-          {/* Welcome Section */}
           <div className="welcome-section">
             <div>
               <h1 className="welcome-title">Welcome back, {user?.name || 'Student'}!</h1>
@@ -257,240 +137,154 @@ const StudentDashboard = () => {
             </div>
           </div>
 
-          {/* Main Content Grid */}
           <div className="dashboard-grid">
-            {/* Left Column - Budget & Transactions */}
+            {/* Left column: where you stand, and what to do next */}
             <div className="dashboard-left">
-              {/* Budget Overview */}
-              <div className="dashboard-card">
+              <div className="dashboard-card stage-card">
                 <div className="card-header">
-                  <h2 className="card-title">Budget Overview</h2>
-                  <p className="card-subtitle">Your financial summary at a glance.</p>
-                </div>
-                
-                <div className="budget-summary">
-                  <div className="budget-item">
-                    <p className="budget-label">Current Balance</p>
-                    <p className="budget-value balance">KES {budgetData.currentBalance.toFixed(2)}</p>
-                  </div>
-                  <div className="budget-item">
-                    <p className="budget-label">Income / Expenses</p>
-                    <p className="budget-value income-expense">
-                      <span className="income">KES {budgetData.totalIncome.toFixed(2)}</span> / <span className="expense">KES {budgetData.totalExpenses.toFixed(2)}</span>
-                    </p>
-                  </div>
+                  <h2 className="card-title">Where you stand</h2>
+                  <p className="card-subtitle">Worked out from your M-Pesa statement.</p>
                 </div>
 
-                {/* Bar Chart */}
-                <div className="chart-container">
-                  {loading ? (
-                    <div className="chart-loading">Loading chart...</div>
-                  ) : (
-                    <ResponsiveContainer width="100%" height={280}>
-                      <BarChart
-                        data={chartData}
-                        margin={{ top: 20, right: 30, left: 20, bottom: 20 }}
-                      >
-                        <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                        <XAxis 
-                          dataKey="name" 
-                          tick={{ fill: '#666', fontSize: 14 }}
-                          axisLine={{ stroke: '#e5e7eb' }}
-                        />
-                        <YAxis 
-                          tick={{ fill: '#666', fontSize: 12 }}
-                          axisLine={{ stroke: '#e5e7eb' }}
-                          tickFormatter={(value) => `KES ${value.toLocaleString()}`}
-                        />
-                        <Tooltip 
-                          formatter={(value) => [`KES ${value.toFixed(2)}`, 'Amount']}
-                          contentStyle={{
-                            backgroundColor: 'white',
-                            border: '1px solid #e5e7eb',
-                            borderRadius: '8px',
-                            padding: '10px'
-                          }}
-                        />
-                        <Legend 
-                          wrapperStyle={{ paddingTop: '20px' }}
-                          iconType="square"
-                        />
-                        <Bar 
-                          dataKey="amount" 
-                          radius={[8, 8, 0, 0]}
-                          maxBarSize={80}
-                        >
-                          {chartData.map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={entry.fill} />
-                          ))}
-                        </Bar>
-                      </BarChart>
-                    </ResponsiveContainer>
-                  )}
-                </div>
-              </div>
+                {recStatus === 'loading' && <div className="loading-state">Loading…</div>}
 
-              {/* Recent Transactions */}
-              <div className="dashboard-card">
-                <div className="card-header">
-                  <h2 className="card-title">Recent Transactions</h2>
-                  <p className="card-subtitle">Your latest financial activities.</p>
-                </div>
-
-                {loading ? (
-                  <div className="loading-state">Loading transactions...</div>
-                ) : recentTransactions.length === 0 ? (
+                {recStatus === 'error' && (
                   <div className="empty-state">
-                    <p>No transactions yet. Start by adding your first income or expense!</p>
+                    <p>We could not load this right now.</p>
+                    <button type="button" className="action-btn secondary inline-btn" onClick={loadRecommendations}>
+                      Try again
+                    </button>
                   </div>
-                ) : (
-                  <div className="transactions-table">
-                    <div className="table-header">
-                      <span className="col-date">Date</span>
-                      <span className="col-description">Description</span>
-                      <span className="col-category">Category</span>
-                      <span className="col-amount">Amount</span>
+                )}
+
+                {recStatus === 'none' && (
+                  <div className="empty-state">
+                    <p>You have not uploaded a statement yet. Upload one and we will show where you stand and what to do next.</p>
+                    <div className="empty-actions">
+                      <button type="button" className="action-btn primary inline-btn" onClick={() => navigate(RECOMMENDATIONS_PATH)}>
+                        Upload your statement
+                      </button>
+                      <button type="button" className="action-btn secondary inline-btn" onClick={openSimulator}>
+                        Try the simulator
+                      </button>
                     </div>
-                    {recentTransactions.map((transaction) => (
-                      <div key={transaction.id || transaction.entry_id} className="table-row">
-                        <span className="col-date">{formatDate(transaction.entry_date)}</span>
-                        <span className="col-description">{transaction.description || transaction.category}</span>
-                        <span className="col-category">{transaction.category}</span>
-                        <span className={`col-amount ${transaction.entry_type === 'income' ? 'positive' : 'negative'}`}>
-                          {transaction.entry_type === 'income' ? '+' : '-'}KES {parseFloat(transaction.amount).toFixed(2)}
-                        </span>
-                      </div>
-                    ))}
+                  </div>
+                )}
+
+                {recStatus === 'ok' && stageInfo && (
+                  <div className="stage-body">
+                    <p className="stage-label">{stageInfo.label}</p>
+                    {stageInfo.blurb && <p className="stage-blurb">{stageInfo.blurb}</p>}
+                    {stage.reasons?.[0] && <p className="stage-reason">{stage.reasons[0]}</p>}
+                    {typical && <p className="typical-month">{typical}</p>}
                   </div>
                 )}
               </div>
+
+              {recStatus === 'ok' && topCard && (
+                <div className="dashboard-card next-step-card">
+                  <div className="card-header">
+                    <h2 className="card-title">Your next step</h2>
+                    <p className="card-subtitle">{topCard.title}</p>
+                  </div>
+                  <p className="next-step-what">{topCard.what}</p>
+                  {topCard.first_step && (
+                    <p className="next-step-first"><strong>Start here:</strong> {topCard.first_step}</p>
+                  )}
+                  <button type="button" className="action-btn primary inline-btn" onClick={() => navigate(RECOMMENDATIONS_PATH)}>
+                    See all steps
+                  </button>
+                </div>
+              )}
             </div>
 
-            {/* Right Column - Quick Actions & Goals */}
+            {/* Right column */}
             <div className="dashboard-right">
-              {/* Quick Actions */}
               <div className="dashboard-card quick-actions-card">
                 <h2 className="card-title">Quick Actions</h2>
                 <div className="quick-actions">
-                  <button className="action-btn primary" onClick={() => navigate('/finance-hub')}>
-                    Add Income/Expense
+                  <button className="action-btn primary" onClick={() => navigate(RECOMMENDATIONS_PATH)}>
+                    Upload statement
                   </button>
-                  <button className="action-btn secondary" onClick={() => navigate('/simulation')}>
+                  <button className="action-btn secondary" onClick={() => navigate(SIMULATOR_PATH)}>
                     Start Simulation
                   </button>
                 </div>
               </div>
 
-              {/* Financial Goals */}
-              <div className="dashboard-card">
-                <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <div>
-                    <h2 className="card-title">Financial Goals</h2>
-                    <p className="card-subtitle">Keep tracking your progress!</p>
-                  </div>
-                  <button 
-                    className="view-all-btn"
-                    onClick={() => navigate('/goals')}
-                    style={{
-                      padding: '8px 16px',
-                      background: '#f0f4ff',
-                      color: '#4c6ef5',
-                      border: 'none',
-                      borderRadius: '6px',
-                      fontSize: '13px',
-                      fontWeight: '600',
-                      cursor: 'pointer'
-                    }}
-                  >
-                    View All
+              {recStatus === 'ok' && (
+                <div className="dashboard-card statement-card">
+                  <h2 className="card-title">Your statement</h2>
+                  <dl className="fact-list">
+                    {rec.statement?.period_start && rec.statement?.period_end && (
+                      <div>
+                        <dt>Covers</dt>
+                        <dd>{formatDay(rec.statement.period_start)} to {formatDay(rec.statement.period_end)}</dd>
+                      </div>
+                    )}
+                    {rec.statement?.last_uploaded_at && (
+                      <div>
+                        <dt>Last uploaded</dt>
+                        <dd>{formatSavedDay(rec.statement.last_uploaded_at)}</dd>
+                      </div>
+                    )}
+                  </dl>
+                  {isStale && (
+                    <p className="stale-note">
+                      This statement is getting old. Upload a recent one so your advice fits you now.
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {recStatus === 'ok' && (
+                <div className="dashboard-card savings-card">
+                  <h2 className="card-title">Savings and simulator</h2>
+                  {savings != null ? (
+                    <p className="savings-line">
+                      You told us you keep <strong>{formatKes(savings)}</strong> in savings outside your wallet
+                      {rec.savings_balance.updated_at ? ` (as of ${formatSavedDay(rec.savings_balance.updated_at)})` : ''}.
+                    </p>
+                  ) : (
+                    <p className="savings-line">
+                      Add any savings you keep outside M-Pesa on the Recommendations page for a more accurate picture.
+                    </p>
+                  )}
+                  {simulatorHint && (
+                    <p className="savings-line">
+                      A fifth of what a typical month leaves you is about <strong>{formatKes(simulatorHint.monthly_amount)}</strong> a month.
+                    </p>
+                  )}
+                  <button type="button" className="action-btn secondary" onClick={openSimulator}>
+                    Try the simulator
                   </button>
                 </div>
-                
-                {goalsLoading ? (
-                  <div className="loading-state" style={{ padding: '20px' }}>Loading goals...</div>
-                ) : financialGoals.length === 0 ? (
-                  <div className="empty-state" style={{ padding: '20px' }}>
-                    <p style={{ fontSize: '14px', color: '#6b7280', marginBottom: '12px' }}>
-                      No active goals yet. Set your first financial goal!
-                    </p>
-                    <button 
-                      className="action-btn primary"
-                      onClick={() => navigate('/goals')}
-                      style={{ fontSize: '14px', padding: '10px 16px' }}
-                    >
-                      Create Goal
-                    </button>
-                  </div>
-                ) : (
-                  <div className="goals-list">
-                    {financialGoals.map((goal) => {
-                      const progress = calculateProgress(goal.current_amount, goal.target_amount);
-                      return (
-                        <div key={goal.id} className="goal-item">
-                          <div className="goal-header">
-                            <span className="goal-name">{goal.goal_name}</span>
-                            <span className="goal-percentage">{progress.toFixed(1)}%</span>
-                          </div>
-                          <div className="progress-bar">
-                            <div className="progress-fill" style={{ width: `${progress}%` }}></div>
-                          </div>
-                          <p className="goal-amount">
-                            KES {parseFloat(goal.current_amount).toLocaleString()} of KES {parseFloat(goal.target_amount).toLocaleString()}
-                          </p>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
+              )}
 
-              {/* Latest Recommendation */}
-              <div className="dashboard-card recommendation-card">
-                <h2 className="card-title">Your Latest Recommendation</h2>
-                <p className="card-subtitle">Fresh advice for you!</p>
-                
-                {recommendationLoading ? (
-                  <div className="recommendation-content">
-                    <p className="recommendation-loading">Loading recommendation...</p>
+              <div className="dashboard-card">
+                <div className="card-header goals-header">
+                  <div>
+                    <h2 className="card-title">Badges</h2>
+                    <p className="card-subtitle">Earned by uploading statements and trying the simulator.</p>
                   </div>
-                ) : latestRecommendation ? (
-                  <div className="recommendation-content">
-                    <div className="recommendation-meta">
-                      <span className={`recommendation-status ${latestRecommendation.status}`}>
-                        {latestRecommendation.status}
-                      </span>
-                      <span className="recommendation-category">
-                        {latestRecommendation.category}
-                      </span>
-                    </div>
-                    <p className="recommendation-text">
-                      {latestRecommendation.recomm_text?.length > 150 
-                        ? `${latestRecommendation.recomm_text.substring(0, 150)}...` 
-                        : latestRecommendation.recomm_text}
-                    </p>
-                    {latestRecommendation.confidence_score && (
-                      <p className="recommendation-confidence">
-                        Confidence: {(parseFloat(latestRecommendation.confidence_score) * 100).toFixed(1)}%
-                      </p>
-                    )}
-                    <button 
-                      className="recommendation-btn"
-                      onClick={() => navigate('/recommendations')}
-                    >
-                      View Full Recommendation
-                    </button>
-                  </div>
+                  <button className="view-all-btn" onClick={() => navigate(BADGES_PATH)}>See badges</button>
+                </div>
+
+                {badges.status === 'loading' ? (
+                  <div className="loading-state compact">Loading badges...</div>
+                ) : badges.status === 'error' ? (
+                  <div className="empty-state compact"><p>We could not load your badges right now.</p></div>
                 ) : (
-                  <div className="recommendation-content">
-                    <p className="recommendation-empty">
-                      No recommendations yet. Generate your first AI-powered recommendation!
+                  <div className="badges-summary">
+                    {badges.newly > 0 && (
+                      <p className="badges-new">You just earned {badges.newly} new {badges.newly === 1 ? 'badge' : 'badges'}!</p>
+                    )}
+                    <p className="badges-line">
+                      {badges.total === 0
+                        ? 'No badges yet. Upload a statement or save a simulation to earn your first one.'
+                        : `${badges.total} ${badges.total === 1 ? 'badge' : 'badges'} earned`}
                     </p>
-                    <button 
-                      className="recommendation-btn"
-                      onClick={() => navigate('/recommendations')}
-                    >
-                      Get Your First Recommendation
-                    </button>
+                    <p className="badges-xp">Level {badges.level} · {badges.xp} XP</p>
                   </div>
                 )}
               </div>

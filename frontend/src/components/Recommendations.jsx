@@ -1,10 +1,14 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import DashboardNavbar from '../components/DashboardNavbar';
 import DashboardFooter from '../components/DashboardFooter';
 import api from '../api/axios';
 import './Recommendations.css';
 
 const MAX_PDF_MB = 10; // matches the limit on the Laravel side
+
+// Where the Simulation page lives in your router. Change this if your route is different.
+const SIMULATOR_PATH = '/simulation';
 
 const STAGE_INFO = {
   not_enough_data: { label: 'We need more data', blurb: 'Add more of your statement so we can say something useful.' },
@@ -65,7 +69,19 @@ const formatUploaded = (iso) => {
       });
 };
 
+const formatKes = (n) => Number(n).toLocaleString('en-US', { maximumFractionDigits: 2 });
+
+// updated_at for the savings amount is a full ISO timestamp with its offset; show the day in Nairobi time.
+const formatSavedDay = (iso) => {
+  if (!iso) return '';
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime())
+    ? ''
+    : d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Africa/Nairobi' });
+};
+
 const Recommendations = () => {
+  const navigate = useNavigate();
   // Page data
   const [data, setData] = useState(null);
   const [needsStatement, setNeedsStatement] = useState(false);
@@ -86,6 +102,16 @@ const Recommendations = () => {
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState('');
   const [deleting, setDeleting] = useState(false);
+
+  // Savings held outside the wallet (M-Shwari, Ziidi, SACCO, bank)
+  const [savingsInput, setSavingsInput] = useState('');
+  const [editingSavings, setEditingSavings] = useState(false);
+  const [savingsBusy, setSavingsBusy] = useState(false);
+  const [savingsError, setSavingsError] = useState('');
+
+  // Quick mode: students with no statement answer three questions and go straight to the simulator
+  const [quick, setQuick] = useState({ monthly: '', initial: '', duration: '12', unit: 'months' });
+  const [quickError, setQuickError] = useState('');
 
   // Modal states
   const [selectedRecommendation, setSelectedRecommendation] = useState(null);
@@ -141,6 +167,98 @@ const Recommendations = () => {
     if (!password) return 'Enter the statement password.';
     if (!consent) return 'Please tick the box to confirm you agree before uploading.';
     return '';
+  };
+
+  // Refresh the cards without blanking the page, so the confirmation message stays on screen.
+  const reloadCardsQuietly = async () => {
+    try {
+      const response = await api.get('/statements/recommendations');
+      setData(response.data.data);
+    } catch (err) {
+      /* the amount is saved; the page picks it up the next time it loads */
+    }
+  };
+
+  const saveSavings = async (value) => {
+    setSavingsBusy(true);
+    setSavingsError('');
+    clearMessages();
+    try {
+      const response = await api.put('/statements/savings-balance', { savings_balance: value });
+      if (response.data.cards_refreshed) {
+        await reloadCardsQuietly();
+        setMessage(value === null ? 'Savings amount removed. Your advice no longer counts it.' : 'Savings amount saved. Your advice now counts it.');
+      } else {
+        setData((prev) => (prev ? { ...prev, savings_balance: response.data.data } : prev));
+        setMessage(value === null
+          ? 'Savings amount removed.'
+          : 'Savings amount saved. We could not update your advice just now, but it will use this amount the next time you open the page.');
+      }
+      setEditingSavings(false);
+      setSavingsInput('');
+    } catch (err) {
+      setSavingsError(messageFrom(err, 'We could not save that. Please try again.'));
+    } finally {
+      setSavingsBusy(false);
+    }
+  };
+
+  const handleSaveSavings = (e) => {
+    e.preventDefault();
+    const text = String(savingsInput).trim();
+    const n = Number(text);
+    if (text === '' || !Number.isFinite(n)) {
+      setSavingsError('Enter your savings as a number, for example 2500.');
+      return;
+    }
+    if (n < 0) {
+      setSavingsError('Your savings cannot be a negative amount.');
+      return;
+    }
+    saveSavings(n);
+  };
+
+  const handleQuickStart = (e) => {
+    e.preventDefault();
+    const num = (v) => (String(v).trim() === '' ? 0 : Number(v));
+    const monthly = num(quick.monthly);
+    const initial = num(quick.initial);
+    const duration = Number(quick.duration);
+    if (![monthly, initial].every((n) => Number.isFinite(n) && n >= 0)) {
+      setQuickError('Enter amounts as numbers, for example 500. They cannot be negative.');
+      return;
+    }
+    if (initial === 0) {
+      setQuickError('Enter how much you have to start with. The simulator needs a starting amount, even a small one.');
+      return;
+    }
+    if (!Number.isInteger(duration) || duration < 1) {
+      setQuickError('Enter how long as a whole number, for example 12.');
+      return;
+    }
+    if (quick.unit === 'years' ? duration > 50 : duration > 600) {
+      setQuickError('That is longer than we can simulate. Try 50 years or less.');
+      return;
+    }
+    setQuickError('');
+    navigate(SIMULATOR_PATH, {
+      state: {
+        prefill: {
+          source: 'quick',
+          investment_type: 'mmf',
+          monthly_amount: monthly || null,
+          initial_amount: initial || null,
+          duration_value: duration,
+          duration_unit: quick.unit,
+        },
+      },
+    });
+  };
+
+  const openSimulator = (hint) => {
+    navigate(SIMULATOR_PATH, {
+      state: { prefill: { investment_type: hint.investment_type, monthly_amount: hint.monthly_amount ?? null } },
+    });
   };
 
   const handleUpload = async (e) => {
@@ -473,6 +591,42 @@ const Recommendations = () => {
             </div>
           )}
 
+          {/* No statement yet: a short way into the simulator */}
+          {!pageLoading && needsStatement && (
+            <div className="quick-card">
+              <h2>No statement yet? Try the simulator</h2>
+              <p className="quick-help">
+                Answer three quick questions and see what saving could look like. Nothing is saved, and without your
+                statement we cannot check whether you are ready, so this is for learning only.
+              </p>
+              <form className="quick-form" onSubmit={handleQuickStart} noValidate>
+                <div className="quick-field">
+                  <label htmlFor="quick-monthly">How much could you add each month? (KES, optional)</label>
+                  <input id="quick-monthly" type="number" min="0" step="any" inputMode="decimal" placeholder="For example 500"
+                    value={quick.monthly} onChange={(e) => { setQuick({ ...quick, monthly: e.target.value }); setQuickError(''); }} />
+                </div>
+                <div className="quick-field">
+                  <label htmlFor="quick-initial">How much do you have to start with? (KES)</label>
+                  <input id="quick-initial" type="number" min="0" step="any" inputMode="decimal" placeholder="For example 2000"
+                    value={quick.initial} onChange={(e) => { setQuick({ ...quick, initial: e.target.value }); setQuickError(''); }} />
+                </div>
+                <div className="quick-field">
+                  <label htmlFor="quick-duration">For how long?</label>
+                  <div className="quick-row">
+                    <input id="quick-duration" type="number" min="1" step="1" inputMode="numeric"
+                      value={quick.duration} onChange={(e) => { setQuick({ ...quick, duration: e.target.value }); setQuickError(''); }} />
+                    <select aria-label="Unit" value={quick.unit} onChange={(e) => setQuick({ ...quick, unit: e.target.value })}>
+                      <option value="months">months</option>
+                      <option value="years">years</option>
+                    </select>
+                  </div>
+                </div>
+                {quickError && <p className="quick-error" role="alert">{quickError}</p>}
+                <button type="submit" className="btn-primary">Open the simulator</button>
+              </form>
+            </div>
+          )}
+
           {/* Statement summary and actions */}
           {!pageLoading && data && (
             <>
@@ -531,6 +685,56 @@ const Recommendations = () => {
                 )}
               </div>
 
+              {/* Savings held outside the wallet */}
+              <div className="savings-card">
+                <h2>Savings outside M-Pesa</h2>
+                <p className="savings-help">
+                  A statement cannot show money kept in M-Shwari, Ziidi, a SACCO or a bank. Add the total so your advice
+                  counts it. We store this one number only, never account details.
+                </p>
+                {data.savings_balance?.amount != null && !editingSavings ? (
+                  <div className="savings-current">
+                    <p>
+                      <strong>KES {formatKes(data.savings_balance.amount)}</strong>
+                      {data.savings_balance.updated_at && <span className="savings-updated"> · updated {formatSavedDay(data.savings_balance.updated_at)}</span>}
+                    </p>
+                    <div className="savings-actions">
+                      <button type="button" className="btn-secondary" onClick={() => { setEditingSavings(true); setSavingsInput(String(data.savings_balance.amount)); setSavingsError(''); }}>
+                        Change
+                      </button>
+                      <button type="button" className="btn-danger-link" onClick={() => saveSavings(null)} disabled={savingsBusy}>
+                        Remove
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <form className="savings-form" onSubmit={handleSaveSavings} noValidate>
+                    <label htmlFor="savings-amount">Total savings (KES)</label>
+                    <div className="savings-row">
+                      <input
+                        id="savings-amount"
+                        type="number"
+                        min="0"
+                        step="any"
+                        inputMode="decimal"
+                        placeholder="For example 2500"
+                        value={savingsInput}
+                        onChange={(e) => { setSavingsInput(e.target.value); setSavingsError(''); }}
+                      />
+                      <button type="submit" className="btn-primary" disabled={savingsBusy}>
+                        {savingsBusy ? 'Saving...' : 'Save'}
+                      </button>
+                      {editingSavings && (
+                        <button type="button" className="btn-secondary" onClick={() => { setEditingSavings(false); setSavingsError(''); }}>
+                          Cancel
+                        </button>
+                      )}
+                    </div>
+                  </form>
+                )}
+                {savingsError && <p className="savings-error" role="alert">{savingsError}</p>}
+              </div>
+
               {/* Tip of the Day */}
               <div className="tip-of-day-card">
                 <div className="tip-icon">
@@ -581,6 +785,13 @@ const Recommendations = () => {
                           </span>
                           <span className="category-chip">{recommendation.category}</span>
                         </div>
+                        {recommendation.simulator && (
+                          <button type="button" className="simulator-btn" onClick={() => openSimulator(recommendation.simulator)}>
+                            {recommendation.simulator.monthly_amount
+                              ? `Try the simulator with KES ${formatKes(recommendation.simulator.monthly_amount)} a month`
+                              : 'Try the simulator'}
+                          </button>
+                        )}
                         <button className="learn-more-btn" onClick={() => handleViewDetails(recommendation)}>
                           Learn More
                           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -619,7 +830,7 @@ const Recommendations = () => {
                     </svg>
                   </div>
                   <div className="stat-content">
-                    <p className="stat-label">Total Recommendations</p>
+                    <p className="stat-label">Total</p>
                     <p className="stat-value">{statistics.total_recommendations || 0}</p>
                   </div>
                 </div>

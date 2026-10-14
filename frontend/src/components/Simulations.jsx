@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import DashboardNavbar from '../components/DashboardNavbar';
 import DashboardFooter from '../components/DashboardFooter';
 import authService from '../services/authService';
@@ -23,7 +23,11 @@ import {
 
 const Simulations = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const user = authService.getCurrentUser();
+
+  // The Recommendations page can open this page with a suggested investment type and monthly amount.
+  const prefill = location?.state?.prefill || null;
 
   // Investment types state
   const [investmentTypes, setInvestmentTypes] = useState([]);
@@ -31,11 +35,11 @@ const Simulations = () => {
 
   // Form state - matching new API requirements
   const [formData, setFormData] = useState({
-    amount_invested: '',
-    duration_value: '',
-    duration_unit: 'months',
-    investment_type: '',
-    monthly_topup: '',
+    duration_value: prefill?.duration_value ? String(prefill.duration_value) : '',
+    duration_unit: prefill?.duration_unit === 'years' ? 'years' : 'months',
+    amount_invested: prefill?.initial_amount ? String(prefill.initial_amount) : '',
+    investment_type: prefill?.investment_type || '',
+    monthly_topup: prefill?.monthly_amount ? String(prefill.monthly_amount) : '',
     target_amount: '',
     reinvestment_frequency: 'monthly'
   });
@@ -44,7 +48,12 @@ const Simulations = () => {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
-  const [activeView, setActiveView] = useState('explore'); // 'explore', 'simulate', 'history'
+  const [activeView, setActiveView] = useState(prefill?.investment_type ? 'simulate' : 'explore'); // 'explore', 'simulate', 'history'
+  const [prefillNote, setPrefillNote] = useState(
+    prefill?.source === 'quick'
+      ? { quick: true }
+      : prefill?.monthly_amount ? { quick: false, monthly: Number(prefill.monthly_amount) } : null
+  );
   
   // Simulation results
   const [previewResult, setPreviewResult] = useState(null);
@@ -308,6 +317,34 @@ const Simulations = () => {
     }));
   };
 
+  // Simulations saved before tax was modelled have no after_tax_annual_return, so they are not labelled.
+  const whole = (amount) => Math.round(parseFloat(String(amount).replace(/,/g, ''))).toLocaleString('en-US');
+
+  const SHORT_INTRO = {
+    mmf: 'Easy-access savings that earn steady interest. Good for emergency money.',
+    tbill: 'Lend to the government for 3 to 12 months. The return is fixed when you buy.',
+    stock: 'Own a small piece of companies. It can grow, but it can also fall for years.',
+    bond: 'Lend to the government for several years. Pays interest twice a year.',
+  };
+  const shortIntro = (type) => SHORT_INTRO[type.type] || (type.description || '').split('. ')[0].replace(/\.$/, '') + '.';
+
+  const RISK_PLAIN = {
+    very_low: 'Very low risk: your money should hardly move.',
+    low: 'Low risk: small ups and downs.',
+    medium: 'Medium risk: expect some ups and downs.',
+    high: 'High risk: the value can drop a lot.',
+  };
+  const riskPlain = (level) => RISK_PLAIN[level] || '';
+
+  const plainPeriod = (months, fallbackValue, fallbackUnit) => {
+    const m = Number(months);
+    if (!m) return `${fallbackValue} ${fallbackUnit}`;
+    if (m % 12 === 0) return `${m / 12} year${m === 12 ? '' : 's'}`;
+    return `${m} month${m === 1 ? '' : 's'}`;
+  };
+
+  const taxLabel = (sim) => (sim?.model_parameters?.after_tax_annual_return != null ? ' (after tax)' : '');
+
   const getRiskColor = (riskLevel) => {
     const colors = {
       'very_low': '#10b981',
@@ -366,7 +403,7 @@ const Simulations = () => {
               </svg>
             </div>
             <h1>Investment Simulator</h1>
-            <p>Explore investment options and simulate your financial growth</p>
+            <p>Explore investment options and see how they could grow. Nothing here is a prediction.</p>
           </div>
 
           {/* Navigation Tabs */}
@@ -405,6 +442,11 @@ const Simulations = () => {
                 <span className="badge">{savedSimulations.length}</span>
               )}
             </button>
+          </div>
+
+          <div className="sim-disclaimer" role="note">
+            <strong>This is a simulation, not advice.</strong> It uses average rates and stated assumptions.
+            Real returns change and you can lose money. Check current rates and tax rules before you invest.
           </div>
 
           {/* Success/Error Messages */}
@@ -456,34 +498,56 @@ const Simulations = () => {
                       </div>
 
                       <h3 className="type-name">{type.name}</h3>
-                      <p className="type-description">{type.description}</p>
+                      <p className="type-description">{shortIntro(type)}</p>
 
                       <div className="type-stats">
                         <div className="stat-item">
-                          <span className="stat-label">Avg. Return</span>
+                          <span className="stat-label">Yearly return</span>
                           <span className="stat-value return">{type.average_return}%</span>
                         </div>
                         <div className="stat-item">
-                          <span className="stat-label">Volatility</span>
-                          <span className="stat-value">{type.volatility}%</span>
+                          <span className="stat-label" title="How much the value usually moves up and down in a year">Ups &amp; downs</span>
+                          <span className="stat-value">&plusmn;{type.volatility}%</span>
                         </div>
                         <div className="stat-item">
-                          <span className="stat-label">Duration</span>
+                          <span className="stat-label">Best for</span>
                           <span className="stat-value">{type.recommended_duration}</span>
                         </div>
                       </div>
 
-                      <div className="type-range">
-                        <span className="range-label">Expected Return Range:</span>
-                        <div className="range-bar">
-                          <span className="range-min">{type.min_expected_return}%</span>
-                          <div className="range-fill" style={{ 
-                            background: `linear-gradient(to right, ${getRiskColor(type.risk_level)}, ${getRiskColor(type.risk_level)}dd)`,
-                            width: '100%'
-                          }}></div>
-                          <span className="range-max">{type.max_expected_return}%</span>
+                      <p className="type-note">
+                        {type.tax_rate > 0 ? (
+                          <>After {Math.round(type.tax_rate * 100)}% tax: <strong>{type.after_tax_return}%</strong></>
+                        ) : (
+                          'Tax on gains is not included'
+                        )}
+                        {type.needs_review && <span className="estimate-chip">Estimate</span>}
+                      </p>
+
+                      <details className="type-more">
+                        <summary>More details</summary>
+                        <p className="type-more-text">{type.description}</p>
+                        {type.min_expected_return != null && type.max_expected_return != null && (
+                        <div className="type-range">
+                          <span className="range-label">Range {type.range_label}:</span>
+                          <div className="range-bar">
+                            <span className="range-min">{type.min_expected_return}%</span>
+                            <div className="range-fill" style={{ 
+                              background: `linear-gradient(to right, ${getRiskColor(type.risk_level)}, ${getRiskColor(type.risk_level)}dd)`,
+                              width: '100%'
+                            }}></div>
+                            <span className="range-max">{type.max_expected_return}%</span>
+                          </div>
                         </div>
-                      </div>
+                      )}
+                      <p className="type-note type-asof">Based on data as of {type.as_of}</p>
+                        {type.notes && type.notes.length > 0 && (
+                          <ul className="type-more-notes">
+                            {type.notes.map((n) => <li key={n}>{n}</li>)}
+                          </ul>
+                        )}
+                        <p className="type-note type-asof">Where this comes from: {type.source}</p>
+                      </details>
 
                       <button 
                         className="select-type-btn"
@@ -571,6 +635,24 @@ const Simulations = () => {
                       </svg>
                       Investment Details
                     </h2>
+
+                    {prefillNote && (
+                      <p className="prefill-note" role="note">
+                        {prefillNote.quick ? (
+                          <>
+                            We filled in what you told us. We have not seen your statement, so we cannot check your buffer:
+                            keep about two weeks of spending in reserve before you put money anywhere.
+                          </>
+                        ) : (
+                          <>
+                            We filled in <strong>KES {whole(prefillNote.monthly)} a month</strong> from your statement. It is about a fifth of what
+                            a typical month leaves you. Enter how much you would start with and for how long, then press Preview.
+                          </>
+                        )}
+                        {' '}
+                        <button type="button" className="link-btn" onClick={() => setPrefillNote(null)}>Dismiss</button>
+                      </p>
+                    )}
 
                     <form onSubmit={handlePreview} className="simulation-form">
                       <div className="form-group">
@@ -764,7 +846,28 @@ const Simulations = () => {
                           </svg>
                           Projection Summary
                         </h2>
-                        
+
+                        <p className="plain-summary">
+                          {(() => {
+                            const pr = previewResult.projections;
+                            const d = previewResult.investment_details;
+                            const topup = Number(formData.monthly_topup || 0);
+                            const gain = Number(pr.total_growth);
+                            return (
+                              <>
+                                If you put in <strong>KES {whole(formData.amount_invested)}</strong> now
+                                {topup > 0 && <> and <strong>KES {whole(topup)}</strong> every month</>}
+                                {' '}for {plainPeriod(d.duration_months, d.duration_value, d.duration_unit)}, you will have paid in{' '}
+                                <strong>KES {whole(pr.total_invested)}</strong>. Your money could grow to about{' '}
+                                <strong>KES {whole(pr.projected_final_value)}</strong> after tax
+                                {gain >= 0
+                                  ? <>, which is <strong>KES {whole(gain)}</strong> more than you put in.</>
+                                  : <>, which is <strong>KES {whole(Math.abs(gain))}</strong> less than you put in.</>}
+                              </>
+                            );
+                          })()}
+                        </p>
+
                         <div className="results-summary">
                           <div className="result-item highlight">
                             <span className="result-label">Investment Type</span>
@@ -789,25 +892,51 @@ const Simulations = () => {
                           </div>
 
                           <div className="result-item highlight">
-                            <span className="result-label">Final Value</span>
+                            <span className="result-label">Final Value (after tax)</span>
                             <span className="result-value final">KES {formatCurrency(previewResult.projections.projected_final_value)}</span>
                           </div>
 
                           <div className="result-item highlight">
-                            <span className="result-label">Total Growth</span>
+                            <span className="result-label">Total Growth (after tax)</span>
                             <span className="result-value earned">KES {formatCurrency(previewResult.projections.total_growth)}</span>
                           </div>
 
+                          {previewResult.projections.tax_paid > 0 && (
+                            <div className="result-item">
+                              <span className="result-label">Tax taken out</span>
+                              <span className="result-value">KES {formatCurrency(previewResult.projections.tax_paid)}</span>
+                            </div>
+                          )}
+
                           <div className="result-item highlight">
-                            <span className="result-label">Return</span>
+                            <span className="result-label">Total gain</span>
                             <span className="result-value roi">{previewResult.projections.percentage_return}%</span>
                           </div>
 
-                          <div className="result-item">
-                            <span className="result-label">Annualized Return</span>
-                            <span className="result-value">{previewResult.projections.annualized_return}%</span>
-                          </div>
+                          {previewResult.projections.annualized_return != null && (
+                            <div className="result-item">
+                              <span className="result-label">Average growth per year (after tax)</span>
+                              <span className="result-value">{previewResult.projections.annualized_return}%</span>
+                            </div>
+                          )}
                         </div>
+
+                        {previewResult.model_parameters && (
+                          <div className="assumption-note">
+                            <p>
+                              We assumed this investment grows about <strong>{previewResult.model_parameters.average_annual_return}% a year</strong> before tax.
+                              {previewResult.model_parameters.needs_review && <span className="estimate-chip">Estimate</span>}
+                            </p>
+                            <details className="type-more">
+                              <summary>Where this number comes from</summary>
+                              <p className="type-more-text">{previewResult.model_parameters.data_period}. {previewResult.model_parameters.source}</p>
+                              {previewResult.model_parameters.needs_review && (
+                                <p className="type-more-text">This figure is an estimate that is still being reviewed.</p>
+                              )}
+                              <p className="type-more-text">Real returns change from year to year. This is a simulation, not a promise.</p>
+                            </details>
+                          </div>
+                        )}
                       </div>
 
                       {/* Risk Analysis Card */}
@@ -824,32 +953,47 @@ const Simulations = () => {
                             <span className={`risk-badge-large risk-${previewResult.risk_analysis.risk_level.replace('_', '-')}`}>
                               {previewResult.risk_analysis.risk_level.replace('_', ' ').toUpperCase()}
                             </span>
-                            <span className="volatility-text">
-                              Volatility: {previewResult.risk_analysis.volatility}%
-                            </span>
+                            <span className="volatility-text">{riskPlain(previewResult.risk_analysis.risk_level)}</span>
                           </div>
+
+                          <p className="risk-intro">
+                            Nobody knows what will happen, so we tried 5,000 possible futures. Here is how your KES {whole(previewResult.projections.total_invested)} could end up:
+                          </p>
 
                           <div className="scenario-range">
                             <div className="scenario-item worst">
-                              <span className="scenario-label">Worst Case (5th percentile)</span>
-                              <span className="scenario-value">KES {formatCurrency(previewResult.risk_analysis.worst_case_scenario)}</span>
+                              <span className="scenario-label">Bad luck <small>(1 in 20 end up lower)</small></span>
+                              <span className="scenario-value">KES {whole(previewResult.risk_analysis.worst_case_scenario)}</span>
                             </div>
                             <div className="scenario-item median">
-                              <span className="scenario-label">Median Scenario</span>
-                              <span className="scenario-value">KES {formatCurrency(previewResult.risk_analysis.median_scenario)}</span>
+                              <span className="scenario-label">Typical <small>(half end up higher, half lower)</small></span>
+                              <span className="scenario-value">KES {whole(previewResult.risk_analysis.median_scenario)}</span>
                             </div>
                             <div className="scenario-item best">
-                              <span className="scenario-label">Best Case (95th percentile)</span>
-                              <span className="scenario-value">KES {formatCurrency(previewResult.risk_analysis.best_case_scenario)}</span>
+                              <span className="scenario-label">Good luck <small>(1 in 20 end up higher)</small></span>
+                              <span className="scenario-value">KES {whole(previewResult.risk_analysis.best_case_scenario)}</span>
                             </div>
                           </div>
 
-                          <div className="confidence-interval">
-                            <p className="confidence-text">
-                              95% Confidence Interval: KES {formatCurrency(previewResult.risk_analysis.confidence_95_lower)} - 
-                              KES {formatCurrency(previewResult.risk_analysis.confidence_95_upper)}
+                          {previewResult.risk_analysis.probability_of_loss != null && (
+                            <div className="confidence-interval">
+                              <p className="confidence-text">
+                                {Number(previewResult.risk_analysis.probability_of_loss) < 1
+                                  ? 'In almost none of the 5,000 futures did you end with less than you put in.'
+                                  : <>In about <strong>{Math.round(previewResult.risk_analysis.probability_of_loss)} out of every 100</strong> futures, you end with less than you put in.</>}
+                              </p>
+                            </div>
+                          )}
+
+                          <details className="type-more">
+                            <summary>How to read this</summary>
+                            <p className="type-more-text">
+                              In 19 out of 20 futures, you end between KES {whole(previewResult.risk_analysis.confidence_95_lower)} and
+                              KES {whole(previewResult.risk_analysis.confidence_95_upper)}.
+                              The "ups and downs" of this investment is about &plusmn;{previewResult.risk_analysis.volatility}% a year:
+                              the higher it is, the wider the gap between bad luck and good luck.
                             </p>
-                          </div>
+                          </details>
                         </div>
                       </div>
 
@@ -870,7 +1014,11 @@ const Simulations = () => {
                                 <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
                                 <polyline points="22 4 12 14.01 9 11.01"></polyline>
                               </svg>
-                              <h3>Goal Achievable!</h3>
+                              <h3>
+                                {previewResult.goal_analysis.reached_within_duration === false
+                                  ? 'Reachable, but later than your period'
+                                  : 'Goal Achievable!'}
+                              </h3>
                               <p className="goal-message">{previewResult.goal_analysis.message}</p>
                               <div className="goal-timeline">
                                 <div className="goal-time-item">
@@ -1048,7 +1196,7 @@ const Simulations = () => {
                           <span className="result-value">KES {formatCurrency(selectedSimulation.total_invested)}</span>
                         </div>
                         <div className="result-item highlight">
-                          <span className="result-label">Final Value</span>
+                          <span className="result-label">Final Value{taxLabel(selectedSimulation)}</span>
                           <span className="result-value final">KES {formatCurrency(selectedSimulation.projected_final_value)}</span>
                         </div>
                         <div className="result-item highlight">
@@ -1225,7 +1373,7 @@ const Simulations = () => {
                               <span className="detail-value">KES {formatCurrency(simulation.monthly_topup)}</span>
                             </div>
                             <div className="detail-row highlight">
-                              <span className="detail-label">Final Value</span>
+                              <span className="detail-label">Final Value{taxLabel(simulation)}</span>
                               <span className="detail-value final">KES {formatCurrency(simulation.projected_final_value)}</span>
                             </div>
                             <div className="detail-row highlight">

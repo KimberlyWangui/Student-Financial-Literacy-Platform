@@ -133,13 +133,12 @@ class Badge extends Model
      */
     public function getCriteriaDescriptionAttribute(): string
     {
+        $n = $this->criteria_value;
+
         return match ($this->criteria_type) {
-            'transaction_count' => "Add {$this->criteria_value} " . ($this->criteria_value == 1 ? 'transaction' : 'transactions'),
-            'expense_streak' => "Track expenses for {$this->criteria_value} consecutive days",
-            'created_budget' => "Create {$this->criteria_value} " . ($this->criteria_value == 1 ? 'budget' : 'budgets'),
-            'stayed_under_budget' => "Stay under budget for {$this->criteria_value} " . ($this->criteria_value == 1 ? 'month' : 'months'),
-            'goal_count' => "Create {$this->criteria_value} " . ($this->criteria_value == 1 ? 'goal' : 'goals'),
-            'completed_goal_count' => "Complete {$this->criteria_value} " . ($this->criteria_value == 1 ? 'goal' : 'goals'),
+            'statement_count' => "Upload {$n} M-Pesa " . ($n == 1 ? 'statement' : 'statements'),
+            'simulation_count' => "Save {$n} " . ($n == 1 ? 'simulation' : 'simulations'),
+            'simulation_types' => "Try {$n} different investment " . ($n == 1 ? 'type' : 'types') . ' in the simulator',
             default => 'Unknown criteria'
         };
     }
@@ -152,12 +151,9 @@ class Badge extends Model
     public static function getCriteriaTypes(): array
     {
         return [
-            'transaction_count',
-            'expense_streak',
-            'created_budget',
-            'stayed_under_budget',
-            'goal_count',
-            'completed_goal_count'
+            'statement_count',
+            'simulation_count',
+            'simulation_types',
         ];
     }
 

@@ -17,8 +17,10 @@ A = {
     "lump_share": 0.5,          # top-5 payments make up at least this share of spending
     "fee_share": 0.02,          # fees are at least this share of spending
     "buffer_weeks": 8,          # spread the buffer gap over this many weeks in the suggested first step
-    "invest_min": 100,          # suggested monthly amount for the simulator, in KES
-    "invest_max": 2000,
+    "invest_share": 0.2,        # suggest this share of a typical month's leftover money for the simulator
+    "invest_round": 50,         # amounts are rounded down to a multiple of this, in KES
+    "invest_cap": 5000,         # never suggest more than this per month
+    "invest_type": "mmf",       # simulator starting point: low risk and easy to withdraw from
 }
 
 CATEGORIES = ("Budget", "Goal", "Saving", "Spending", "Income", "General")   # matches the Laravel recommendations table
@@ -36,10 +38,25 @@ def _round_up(x, base=10):
     return int(math.ceil(x / base) * base)
 
 
+def suggest_monthly(m):
+    """About 20% of what a typical month leaves over (money in minus money out), rounded down to KES 50.
+    None when the statement has too few full months, nothing is left over, or the amount would be under KES 50."""
+    inflow, outflow = m.get("median_month_inflow"), m.get("median_month_outflow")
+    if inflow is None or outflow is None:
+        return None
+    leftover = float(inflow) - float(outflow)
+    if leftover <= 0:
+        return None
+    amount = int(leftover * A["invest_share"] // A["invest_round"]) * A["invest_round"]
+    amount = min(amount, A["invest_cap"])
+    return amount if amount >= A["invest_round"] else None
+
+
 def _card(id, category, title, what, why, first_step, priority, confidence,
-          learn=None, impact_kes=None, evidence=None):
+          learn=None, impact_kes=None, evidence=None, simulator=None):
     assert category in CATEGORIES, category
     return {
+        "simulator": simulator,
         "id": id, "category": category, "title": title, "what": what, "why": why,
         "first_step": first_step, "learn": learn,
         "impact_kes": None if impact_kes is None else round(float(impact_kes)),
@@ -55,6 +72,7 @@ def _primary(m, dq, stage, extra):
     buffer_days = stage.get("buffer_days")
     reasons = " ".join(stage["reasons"])
     bdt = days_phrase(buffer_days)
+    holds = "wallet and savings" if extra > 0 else "wallet"      # what the buffer is made of
 
     if sid == "not_enough_data":
         days = int(_num(m.get("days_covered")))
@@ -90,7 +108,7 @@ def _primary(m, dq, stage, extra):
             return _card(
                 "build_buffer", "Saving", "Build a small buffer first",
                 f"Aim to hold about {T['buffer_days_ready']} days of spending in reserve, which is roughly {_kes(target)} for you.",
-                f"Your wallet covers {bdt} of typical spending (about {_kes(daily)} a day).",
+                f"Your {holds} cover{'' if extra > 0 else 's'} {bdt} of typical spending (about {_kes(daily)} a day).",
                 f"Move about {_kes(per_week)} a week for {A['buffer_weeks']} weeks into a savings pocket you don't "
                 "touch day to day, such as M-Shwari or Ziidi. Check each product's current terms in its app.",
                 10, conf, impact_kes=gap,
@@ -98,9 +116,9 @@ def _primary(m, dq, stage, extra):
                           "typical_daily_outflow": daily, "gap_kes": round(gap)})
         return _card(
             "build_buffer", "Saving", "Start saving regularly",
-            "Your wallet already covers a good buffer. The next step is to build a saving habit so the buffer "
+            f"Your {holds} already cover{'' if extra > 0 else 's'} a good buffer. The next step is to build a saving habit so the buffer "
             "doesn't depend on what happens to be left over.",
-            f"Your wallet covers {bdt} of typical spending, but we found no saving activity.",
+            f"Your {holds} cover{'' if extra > 0 else 's'} {bdt} of typical spending, but we found no saving activity.",
             "Pick one day each month, right after your main deposit arrives, and move a fixed amount into a "
             "savings pocket such as M-Shwari or Ziidi.",
             10, conf, evidence={"buffer_days": buffer_days, "savings_deposits": m.get("savings_deposits")})
@@ -133,15 +151,14 @@ def _primary(m, dq, stage, extra):
                 10, conf, evidence=ev)
         return _card(
             "make_saving_consistent", "Saving", "Keep saving, and grow your buffer",
-            f"Your saving habit is working. The gap now is your wallet buffer, which covers {bdt} "
+            f"Your saving habit is working. The gap now is your buffer, which covers {bdt} "
             f"against a {T['buffer_days_ready']}-day target.",
             reasons,
             f"Add about {_kes(_round_up(gap / A['buffer_weeks']))} a week for {A['buffer_weeks']} weeks to your "
             "wallet or savings.", 10, conf, impact_kes=gap, evidence=ev)
 
     # ready_to_explore: education only
-    monthly = _num(m.get("median_month_inflow"))
-    amount = min(max(int(round(0.1 * monthly / 50.0) * 50), A["invest_min"]), A["invest_max"]) if monthly > 0 else 500
+    amount = suggest_monthly(m)
     net = _num(m.get("net_savings_moved"))
     ratio = m.get("savings_return_ratio")
     if ratio is None or ratio < 0.1:
@@ -152,14 +169,19 @@ def _primary(m, dq, stage, extra):
         "learn_investing_basics", "General", "Learn how saving and investing options compare",
         "You have a buffer and a saving habit, which is the right foundation. Before putting money anywhere, "
         "learn how common options for small amounts differ: money market funds, treasury bills and SACCOs.",
-        f"Your wallet covers {bdt} of typical spending, you have moved about {_kes(net)} into savings, {kept}.",
-        f"Try the investment simulator with a small amount, such as {_kes(amount)} a month, and compare the "
-        "options on risk and on how quickly you can get your money back.",
+        f"Your {holds} cover{'' if extra > 0 else 's'} {bdt} of typical spending, you have moved about {_kes(net)} into savings, {kept}.",
+        (f"Try the investment simulator with {_kes(amount)} a month, about a fifth of what a typical month leaves you,"
+         if amount else "Try the investment simulator with a small amount")
+        + " and compare the options on risk and on how quickly you can get your money back.",
         10, conf,
         learn="Returns are not guaranteed, rates change, and some options lock your money for a period. "
               "Don't invest money you may need for fees or rent. This is for learning, not a recommendation to buy a product.",
         evidence={"buffer_days": buffer_days, "net_savings_moved": m.get("net_savings_moved"),
-                  "savings_return_ratio": m.get("savings_return_ratio")})
+                  "savings_return_ratio": m.get("savings_return_ratio"),
+                  "median_month_inflow": m.get("median_month_inflow"),
+                  "median_month_outflow": m.get("median_month_outflow"),
+                  "suggested_monthly_kes": amount},
+        simulator={"investment_type": A["invest_type"], "monthly_amount": amount})
 
 
 # ---- extra cards triggered by specific patterns ----------------------------------------

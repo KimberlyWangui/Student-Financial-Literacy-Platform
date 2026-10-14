@@ -9,172 +9,72 @@ use Illuminate\Support\Facades\DB;
 class BadgeSeeder extends Seeder
 {
     /**
-     * Run the database seeder.
+     * Badges are earned by uploading M-Pesa statements and saving simulations.
+     *
+     * Running this wipes all earned badges and resets every student's XP to 0,
+     * because the old badges (expenses, budgets, goals) no longer exist.
      */
     public function run(): void
     {
-        // Clear existing badges
         DB::table('student_badges')->delete();
         DB::table('badges')->delete();
+        DB::table('student_profiles')->update(['xp_total' => 0]);
 
         $badges = [
-            // ============================================
-            // TRANSACTION BADGES (Behavioral)
-            // ============================================
             [
-                'badge_name' => 'First Expense Added',
-                'description' => 'Added your first expense to the system. Welcome to financial tracking!',
-                'criteria_type' => 'transaction_count',
+                'badge_name' => 'First Statement',
+                'description' => 'Uploaded your first M-Pesa statement. This is where PennyWise starts to learn how your money moves.',
+                'criteria_type' => 'statement_count',
                 'criteria_value' => 1,
-                'xp_reward' => 10,
-                'image_url' => '/images/badge.png',
-            ],
-            [
-                'badge_name' => 'Transaction Novice',
-                'description' => 'Logged 10 transactions. You\'re getting the hang of this!',
-                'criteria_type' => 'transaction_count',
-                'criteria_value' => 10,
-                'xp_reward' => 25,
-                'image_url' => '/images/reward.png',
-            ],
-            [
-                'badge_name' => 'Transaction Pro',
-                'description' => 'Reached 50 transactions. You\'re a tracking professional!',
-                'criteria_type' => 'transaction_count',
-                'criteria_value' => 50,
-                'xp_reward' => 50,
-                'image_url' => '/images/target.png',
-            ],
-            [
-                'badge_name' => 'Transaction Master',
-                'description' => 'Logged 100 transactions. Financial tracking is second nature to you!',
-                'criteria_type' => 'transaction_count',
-                'criteria_value' => 100,
-                'xp_reward' => 100,
+                'xp_reward' => 20,
                 'image_url' => '/images/financial-statement.png',
             ],
-
-            // ============================================
-            // STREAK BADGES (Consistency)
-            // ============================================
             [
-                'badge_name' => 'Consistent Tracker (7 days)',
-                'description' => 'Tracked expenses for 7 consecutive days. Building good habits!',
-                'criteria_type' => 'expense_streak',
-                'criteria_value' => 7,
+                'badge_name' => 'Statement Regular',
+                'description' => 'Uploaded 3 statements. Regular uploads keep your advice up to date.',
+                'criteria_type' => 'statement_count',
+                'criteria_value' => 3,
                 'xp_reward' => 50,
                 'image_url' => '/images/badge.png',
             ],
             [
-                'badge_name' => '30-Day Tracker',
-                'description' => 'Tracked expenses for 30 consecutive days. Consistency is key!',
-                'criteria_type' => 'expense_streak',
-                'criteria_value' => 30,
-                'xp_reward' => 150,
-                'image_url' => '/images/reward.png',
-            ],
-            [
-                'badge_name' => '3-Month Tracker',
-                'description' => 'Tracked expenses for 90 consecutive days. You\'re a tracking legend!',
-                'criteria_type' => 'expense_streak',
-                'criteria_value' => 90,
-                'xp_reward' => 300,
-                'image_url' => '/images/target.png',
-            ],
-
-            // ============================================
-            // BUDGETING BADGES
-            // ============================================
-            [
-                'badge_name' => 'First Budget Created',
-                'description' => 'Created your first budget. Taking control of your finances!',
-                'criteria_type' => 'created_budget',
+                'badge_name' => 'Simulation Starter',
+                'description' => 'Saved your first simulation. Now you can see how an amount could grow over time.',
+                'criteria_type' => 'simulation_count',
                 'criteria_value' => 1,
                 'xp_reward' => 15,
-                'image_url' => '/images/financial-statement.png',
+                'image_url' => '/images/target.png',
             ],
             [
-                'badge_name' => 'Budget Planner',
-                'description' => 'Created 5 budgets. You\'re planning ahead!',
-                'criteria_type' => 'created_budget',
+                'badge_name' => 'Curious Learner',
+                'description' => 'Saved 5 simulations. Trying different amounts and time periods is how you learn.',
+                'criteria_type' => 'simulation_count',
                 'criteria_value' => 5,
                 'xp_reward' => 40,
-                'image_url' => '/images/badge.png',
+                'image_url' => '/images/reward.png',
             ],
             [
-                'badge_name' => 'Budget Keeper',
-                'description' => 'Stayed under budget for 1 month. Financial discipline achieved!',
-                'criteria_type' => 'stayed_under_budget',
-                'criteria_value' => 1,
+                'badge_name' => 'Simulation Pro',
+                'description' => 'Saved 10 simulations. You know your way around the simulator.',
+                'criteria_type' => 'simulation_count',
+                'criteria_value' => 10,
                 'xp_reward' => 75,
-                'image_url' => '/images/reward.png',
-            ],
-            [
-                'badge_name' => 'Budget Expert',
-                'description' => 'Stayed under budget for 3 months. You\'re a budgeting expert!',
-                'criteria_type' => 'stayed_under_budget',
-                'criteria_value' => 3,
-                'xp_reward' => 200,
-                'image_url' => '/images/target.png',
-            ],
-            [
-                'badge_name' => 'Budget Master',
-                'description' => 'Stayed under budget for 6 months. Financial mastery achieved!',
-                'criteria_type' => 'stayed_under_budget',
-                'criteria_value' => 6,
-                'xp_reward' => 400,
-                'image_url' => '/images/financial-statement.png',
-            ],
-
-            // ============================================
-            // GOALS BADGES
-            // ============================================
-            [
-                'badge_name' => 'First Goal Created',
-                'description' => 'Set your first financial goal. Dream big!',
-                'criteria_type' => 'goal_count',
-                'criteria_value' => 1,
-                'xp_reward' => 15,
                 'image_url' => '/images/badge.png',
             ],
             [
-                'badge_name' => 'Goal Setter',
-                'description' => 'Created 5 financial goals. You\'re thinking ahead!',
-                'criteria_type' => 'goal_count',
-                'criteria_value' => 5,
-                'xp_reward' => 40,
-                'image_url' => '/images/reward.png',
+                'badge_name' => 'Option Explorer',
+                'description' => 'Tried 2 different investment types in the simulator.',
+                'criteria_type' => 'simulation_types',
+                'criteria_value' => 2,
+                'xp_reward' => 30,
+                'image_url' => '/images/target.png',
             ],
             [
-                'badge_name' => 'First Goal Completed',
-                'description' => 'Completed your first financial goal. Success tastes sweet!',
-                'criteria_type' => 'completed_goal_count',
-                'criteria_value' => 1,
+                'badge_name' => 'Tried Them All',
+                'description' => 'Tried all 4 investment types in the simulator. Comparing them side by side is the best way to see the trade-offs.',
+                'criteria_type' => 'simulation_types',
+                'criteria_value' => 4,
                 'xp_reward' => 100,
-                'image_url' => '/images/target.png',
-            ],
-            [
-                'badge_name' => 'Goal Achiever',
-                'description' => 'Completed 3 financial goals. You make things happen!',
-                'criteria_type' => 'completed_goal_count',
-                'criteria_value' => 3,
-                'xp_reward' => 250,
-                'image_url' => '/images/financial-statement.png',
-            ],
-            [
-                'badge_name' => 'Goal Master',
-                'description' => 'Completed 5 financial goals. Nothing can stop you!',
-                'criteria_type' => 'completed_goal_count',
-                'criteria_value' => 5,
-                'xp_reward' => 500,
-                'image_url' => '/images/badge.png',
-            ],
-            [
-                'badge_name' => 'Goal Legend',
-                'description' => 'Completed 10 financial goals. You\'re an inspiration!',
-                'criteria_type' => 'completed_goal_count',
-                'criteria_value' => 10,
-                'xp_reward' => 1000,
                 'image_url' => '/images/reward.png',
             ],
         ];
@@ -183,16 +83,6 @@ class BadgeSeeder extends Seeder
             Badge::create($badge);
         }
 
-        $this->command->info(' Created ' . count($badges) . ' badges successfully!');
-        
-        // Display summary
-        $this->command->info('');
-        $this->command->info(' Badge Summary:');
-        $this->command->info('   - Transaction Badges: 4');
-        $this->command->info('   - Streak Badges: 3');
-        $this->command->info('   - Budgeting Badges: 5');
-        $this->command->info('   - Goal Badges: 6');
-        $this->command->info('   - Total Badges: 18');
-        $this->command->info('   - Total XP Available: ' . collect($badges)->sum('xp_reward'));
+        $this->command?->info('Created ' . count($badges) . ' badges and reset student XP');
     }
 }

@@ -23,20 +23,18 @@ use App\Notifications\ResetPasswordNotification;
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property \Illuminate\Support\Carbon|null $updated_at
  * @property-read int|null $badges_count
- * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Budget> $budgets
- * @property-read int|null $budgets_count
- * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\FinancialData> $financialData
- * @property-read int|null $financial_data_count
  * @property-read int $badge_count
  * @property-read int $level
  * @property-read int $total_xp
- * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Goal> $goals
- * @property-read int|null $goals_count
  * @property-read \Illuminate\Notifications\DatabaseNotificationCollection<int, \Illuminate\Notifications\DatabaseNotification> $notifications
  * @property-read int|null $notifications_count
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\UserOtp> $otps
  * @property-read int|null $otps_count
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\InvestmentSimulation> $investmentSimulations
+ * @property-read int|null $investment_simulations_count
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Recommendation> $recommendations
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Statement> $statements
+ * @property-read int|null $statements_count
  * @property-read int|null $recommendations_count
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Simulation> $simulations
  * @property-read int|null $simulations_count
@@ -100,19 +98,16 @@ class User extends Authenticatable
         return $this->hasOne(StudentProfile::class, 'student_id');
     }
 
-    public function financialData()
+    /** M-Pesa statements this student has uploaded. */
+    public function statements()
     {
-        return $this->hasMany(FinancialData::class, 'student_id');
+        return $this->hasMany(Statement::class, 'user_id');
     }
 
-    public function goals()
+    /** Investment simulations this student has saved. */
+    public function investmentSimulations()
     {
-        return $this->hasMany(Goal::class, 'student_id');
-    }
-
-    public function budgets()
-    {
-        return $this->hasMany(Budget::class, 'student_id');
+        return $this->hasMany(InvestmentSimulation::class, 'student_id');
     }
 
     public function recommendations()
