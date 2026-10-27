@@ -38,7 +38,7 @@ const Badges = () => {
         const check = await api.post('/badges/check-my-badges');
         const n = check.data?.data?.total_new_badges || 0;
         if (n > 0) setMessage(`You just earned ${n} new ${n === 1 ? 'badge' : 'badges'}!`);
-      } catch (err) {
+      } catch {
         // the check is a bonus; carry on and show what is already earned
       }
     }
@@ -48,14 +48,14 @@ const Badges = () => {
       setProgress(list(prog));
       if (mine.data?.summary?.xp_info) setXp((x) => ({ ...x, ...mine.data.summary.xp_info }));
       setStatus('ok');
-    } catch (err) {
+    } catch {
       setStatus('error');
       return;
     }
     try {
       const lb = await api.get('/badges/leaderboard', { params: { limit: 10 } });
       setLeaderboard(list(lb));
-    } catch (err) {
+    } catch {
       setLeaderboard([]);
     }
   };

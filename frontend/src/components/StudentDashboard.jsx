@@ -87,7 +87,7 @@ const StudentDashboard = () => {
     try {
       const check = await api.post('/badges/check-my-badges');
       newly = check.data?.data?.total_new_badges || 0;
-    } catch (err) {
+    } catch {
       // the badge check is a bonus; still show what is already earned
     }
     try {
@@ -100,7 +100,7 @@ const StudentDashboard = () => {
         xp: xp.total_xp || 0,
         newly,
       });
-    } catch (err) {
+    } catch {
       setBadges({ status: 'error', total: 0, level: 0, xp: 0, newly: 0 });
     }
   };

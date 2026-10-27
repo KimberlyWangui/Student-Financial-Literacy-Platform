@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
 import DashboardNavbar from '../components/DashboardNavbar';
 import DashboardFooter from '../components/DashboardFooter';
-import authService from '../services/authService';
 import api from '../api/axios';
 import './Simulations.css';
 import {
@@ -22,9 +21,7 @@ import {
 } from 'recharts';
 
 const Simulations = () => {
-  const navigate = useNavigate();
   const location = useLocation();
-  const user = authService.getCurrentUser();
 
   // The Recommendations page can open this page with a suggested investment type and monthly amount.
   const prefill = location?.state?.prefill || null;
