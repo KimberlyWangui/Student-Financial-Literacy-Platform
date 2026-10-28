@@ -1,0 +1,7 @@
+finance_model_api/private/
+finance_model_api/venv/
+.env
+*.pdf
+*.pyc
+__pycache__/
+.pytest_cache/

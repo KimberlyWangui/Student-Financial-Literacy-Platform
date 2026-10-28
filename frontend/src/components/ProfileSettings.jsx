@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import authService from '../services/authService';
 import DashboardNavbar from '../components/DashboardNavbar';
 import DashboardFooter from '../components/DashboardFooter';
@@ -7,7 +6,6 @@ import api from '../api/axios';
 import './ProfileSettings.css';
 
 const ProfileSettings = () => {
-  const navigate = useNavigate();
   const user = authService.getCurrentUser();
   
   const [activeTab, setActiveTab] = useState('profile');
@@ -51,6 +49,7 @@ const ProfileSettings = () => {
       fetchMetadata();
       fetchStudentProfile();
     }
+     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const fetchMetadata = async () => {
@@ -126,7 +125,7 @@ const ProfileSettings = () => {
     clearMessages();
 
     try {
-      const response = await api.patch(`/users/${user.id}`, {
+      await api.patch(`/users/${user.id}`, {
         name: profileData.name,
         email: profileData.email
       });

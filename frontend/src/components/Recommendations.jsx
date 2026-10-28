@@ -174,7 +174,7 @@ const Recommendations = () => {
     try {
       const response = await api.get('/statements/recommendations');
       setData(response.data.data);
-    } catch (err) {
+    } catch {
       /* the amount is saved; the page picks it up the next time it loads */
     }
   };
