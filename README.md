@@ -1,5 +1,7 @@
 # PennyWise
 
+![CI](https://github.com/KimberlyWangui/Student-Financial-Literacy-Platform/actions/workflows/ci.yml/badge.svg)
+
 A web app that helps Kenyan university students understand their money. Students upload their M-Pesa statement, PennyWise explains where the money goes in plain language, gives a few clear tips with the reason behind each one, and lets them try an investment simulator to learn how saving and investing work.
 
 PennyWise is an **education tool**. It does not tell anyone what to buy, and the simulator is not financial advice.
