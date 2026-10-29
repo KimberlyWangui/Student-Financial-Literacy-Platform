@@ -7,6 +7,8 @@ The statement analysis service is a separate app (statement_api.py).
 """
 import logging
 import math
+import os
+import hmac
 
 from flask import Flask, jsonify, request
 
@@ -17,6 +19,17 @@ logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("pennywise.investment")
 
 app = Flask(__name__)
+SIMULATOR_TOKEN = os.environ.get("SIMULATOR_API_TOKEN", "")
+
+
+@app.before_request
+def require_token():
+    # Only enforced when SIMULATOR_API_TOKEN is set (on Render). Local development and the tests are unaffected.
+    if not SIMULATOR_TOKEN or request.path in ("/health", "/api/health"):
+        return None
+    sent = request.headers.get("X-Internal-Token", "")
+    if not hmac.compare_digest(sent, SIMULATOR_TOKEN):
+        return _error("Unauthorized", 401)
 
 # Fail loudly at start-up if the assumptions file is missing or malformed.
 ASSUMPTIONS = load_assumptions()
