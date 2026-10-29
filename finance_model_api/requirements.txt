@@ -21,3 +21,4 @@ Werkzeug==3.1.3
 pikepdf
 pdfplumber
 reportlab
+gunicorn
