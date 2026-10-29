@@ -135,7 +135,7 @@ describe('first visit (no statement)', () => {
     render(<Recommendations />);
     await screen.findByText('Start with your M-Pesa statement');
     await user.upload(screen.getByLabelText('M-Pesa statement (PDF)'), pdf());
-    await user.type(screen.getByLabelText('Statement password'), 'secret-pw-123');
+    await user.type(screen.getByLabelText('Statement password'), 'pw');
     await user.click(screen.getByRole('checkbox', { name: /I agree/ }));
     await user.click(screen.getByRole('button', { name: 'Get my recommendations' }));
 
@@ -146,15 +146,15 @@ describe('first visit (no statement)', () => {
     expect(url).toBe('/statements');
     expect(form).toBeInstanceOf(FormData);
     expect(form.get('file').name).toBe('statement.pdf');
-    expect(form.get('password')).toBe('secret-pw-123');
+    expect(form.get('password')).toBe('pw');
     expect(form.get('consent')).toBe('1');
     expect(config.timeout).toBeGreaterThanOrEqual(60000);
     expect(config.headers['Content-Type']).toBe('multipart/form-data');
 
     // The password is never kept: not in the page, not in browser storage.
-    expect(document.body.innerHTML).not.toContain('secret-pw-123');
-    expect(JSON.stringify({ ...localStorage })).not.toContain('secret-pw-123');
-    expect(JSON.stringify({ ...sessionStorage })).not.toContain('secret-pw-123');
+    expect(document.body.innerHTML).not.toContain('pw');
+    expect(JSON.stringify({ ...localStorage })).not.toContain('pw');
+    expect(JSON.stringify({ ...sessionStorage })).not.toContain('pw');
 
     // Reopening the form later must not bring the old password back, and agreement is asked for again.
     await user.click(screen.getByRole('button', { name: 'Add or update statement' }));
