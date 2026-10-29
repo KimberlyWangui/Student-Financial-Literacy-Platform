@@ -20,7 +20,15 @@ class InvestmentSimulationController extends Controller
 
     public function __construct()
     {
-        $this->flaskApiUrl = env('FLASK_API_URL', 'http://localhost:5000');
+        $this->flaskApiUrl = config('services.simulator.url');
+    }
+
+    // Every call to the simulator goes through here so it always carries the shared token.
+    // Render's free servers can take about a minute to wake up, so the timeouts are generous.
+    private function flask(int $seconds)
+    {
+        return Http::timeout($seconds)
+            ->withHeaders(['X-Internal-Token' => (string) config('services.simulator.token')]);
     }
 
     /**
@@ -83,7 +91,7 @@ class InvestmentSimulationController extends Controller
 
         try {
             // Call Flask API to run simulation
-            $response = Http::timeout(30)->post("{$this->flaskApiUrl}/api/investment/simulate", [
+            $response = $this->flask(90)->post("{$this->flaskApiUrl}/api/investment/simulate", [
                 'amount_invested' => $validated['amount_invested'],
                 'duration_value' => $validated['duration_value'],
                 'duration_unit' => $validated['duration_unit'],
@@ -245,7 +253,7 @@ class InvestmentSimulationController extends Controller
 
         try {
             // Call Flask API
-            $response = Http::timeout(30)->post("{$this->flaskApiUrl}/api/investment/simulate", [
+            $response = $this->flask(90)->post("{$this->flaskApiUrl}/api/investment/simulate", [
                 'amount_invested' => $validated['amount_invested'],
                 'duration_value' => $validated['duration_value'],
                 'duration_unit' => $validated['duration_unit'],
@@ -345,7 +353,7 @@ class InvestmentSimulationController extends Controller
     public function getInvestmentTypes()
     {
         try {
-            $response = Http::timeout(10)->get("{$this->flaskApiUrl}/api/investment/statistics");
+            $response = $this->flask(60)->get("{$this->flaskApiUrl}/api/investment/statistics");
 
             if (!$response->successful()) {
                 return response()->json([
@@ -388,7 +396,7 @@ class InvestmentSimulationController extends Controller
             $results = [];
 
             foreach ($validated['scenarios'] as $index => $scenario) {
-                $response = Http::timeout(30)->post("{$this->flaskApiUrl}/api/investment/simulate", [
+                $response = $this->flask(90)->post("{$this->flaskApiUrl}/api/investment/simulate", [
                     'amount_invested' => $scenario['amount_invested'],
                     'duration_value' => $scenario['duration_value'],
                     'duration_unit' => $scenario['duration_unit'],

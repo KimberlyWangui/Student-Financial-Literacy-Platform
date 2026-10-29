@@ -45,4 +45,9 @@ return [
        'url'   => env('STATEMENT_API_URL', 'http://127.0.0.1:5001'),
        'token' => env('STATEMENT_API_TOKEN'),
    ],
+
+    'simulator' => [
+       'url' => env('FLASK_API_URL', 'http://localhost:5000'),
+       'token' => env('SIMULATOR_API_TOKEN'),
+    ],
 ];
