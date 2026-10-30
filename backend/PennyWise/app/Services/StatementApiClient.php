@@ -90,8 +90,8 @@ class StatementApiClient
             ->acceptJson()
             ->connectTimeout(15)
             ->retry(
-                4,
-                app()->environment('testing') ? 0 : 10000,   // wait 10 s between tries (0 in tests)
+                7,
+                app()->environment('testing') ? 0 : 12000,   
                 fn ($e) => $e instanceof ConnectionException
                     || ($e instanceof RequestException && in_array($e->response->status(), [502, 503, 504])),
                 throw: false
