@@ -8,6 +8,8 @@ use Illuminate\Http\Client\Response;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Http\Client\RequestException;
+use GuzzleHttp\Psr7\Utils;
 
 /**
  * Talks to the Flask statement service (finance_model_api/statement_api.py).
@@ -34,24 +36,20 @@ class StatementApiClient
     public function parse(UploadedFile $file, string $password, int $userId): array
     {
         $path = $file->getRealPath();
-        $handle = $path ? @fopen($path, 'rb') : false;
-        if ($handle === false) {
+        $contents = $path ? @file_get_contents($path) : false;
+        if ($contents === false) {
             throw new StatementApiException('UNREADABLE', 'We could not read the uploaded file.', 422);
         }
         try {
             $response = $this->request()
                 ->timeout(120)   // parsing took about 6 s for 660 rows; leave room for a year of data
-                ->attach('file', $handle, 'statement.pdf')
+                ->attach('file', Utils::streamFor($contents), 'statement.pdf')
                 ->post('/v1/parse', [
                     'user_id' => (string) $userId,
                     'password' => $password,
                 ]);
         } catch (ConnectionException) {
             throw $this->unavailable();
-        } finally {
-            if (is_resource($handle)) {
-                fclose($handle);
-            }
         }
         return $this->handle($response);
     }
@@ -90,7 +88,14 @@ class StatementApiClient
         return Http::baseUrl(rtrim($url, '/'))
             ->withHeaders(['X-Internal-Token' => $token])
             ->acceptJson()
-            ->connectTimeout(5);
+            ->connectTimeout(15)
+            ->retry(
+                4,
+                app()->environment('testing') ? 0 : 10000,   // wait 10 s between tries (0 in tests)
+                fn ($e) => $e instanceof ConnectionException
+                    || ($e instanceof RequestException && in_array($e->response->status(), [502, 503, 504])),
+                throw: false
+            );
     }
 
     private function handle(Response $response): array
