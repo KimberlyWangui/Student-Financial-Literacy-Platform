@@ -7,6 +7,13 @@ import './Recommendations.css';
 
 const MAX_PDF_MB = 10; // matches the limit on the Laravel side
 
+// Wakes the free statement service while the student fills in the form.
+const WAKE_URL = import.meta.env.VITE_STATEMENT_HEALTH_URL;
+const wakeStatementService = () => {
+  if (!WAKE_URL) return;
+  fetch(WAKE_URL, { mode: 'no-cors', cache: 'no-store' }).catch(() => {});
+};
+
 // Where the Simulation page lives in your router. Change this if your route is different.
 const SIMULATOR_PATH = '/simulation';
 
@@ -102,6 +109,7 @@ const Recommendations = () => {
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState('');
   const [deleting, setDeleting] = useState(false);
+  const [slowUpload, setSlowUpload] = useState(false);
 
   // Savings held outside the wallet (M-Shwari, Ziidi, SACCO, bank)
   const [savingsInput, setSavingsInput] = useState('');
@@ -121,6 +129,7 @@ const Recommendations = () => {
   const [feedbackForm, setFeedbackForm] = useState({ status: 'viewed', feedback: '' });
 
   useEffect(() => {
+    wakeStatementService();
     loadRecommendations();
     fetchStatistics();
   }, []);
@@ -278,6 +287,9 @@ const Recommendations = () => {
     form.append('consent', '1');
 
     setUploading(true);
+    setSlowUpload(false);
+    wakeStatementService();
+    const slowTimer = setTimeout(() => setSlowUpload(true), 8000);
     try {
       const response = await api.post('/statements', form, {
         headers: { 'Content-Type': 'multipart/form-data' },
@@ -300,7 +312,9 @@ const Recommendations = () => {
     } catch (err) {
       setUploadError(messageFrom(err, 'We could not process that statement. Please try again.'));
     } finally {
+      clearTimeout(slowTimer);
       setUploading(false);
+      setSlowUpload(false);
     }
   };
 
@@ -519,7 +533,9 @@ const Recommendations = () => {
 
       <div className="upload-actions">
         <button type="submit" className="btn-primary" disabled={uploading}>
-          {uploading ? 'Reading your statement…' : 'Get my recommendations'}
+          {uploading 
+          ? (slowUpload ? 'Waking up the server, this can take a minute…' : 'Reading your statement…')
+            : 'Get my recommendations'}
         </button>
         {showUploadForm && !uploading && (
           <button type="button" className="btn-secondary" onClick={() => { setShowUploadForm(false); setUploadError(''); }}>
