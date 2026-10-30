@@ -89,7 +89,11 @@ class ActiveStudentsTest extends TestCase
         $this->assertSame(1, $row['statement_count']);
         $this->assertSame(2, $row['simulation_count']);
         $this->assertArrayNotHasKey('transaction_count', $row);
-        $this->assertTrue(\Carbon\Carbon::parse($row['last_activity'])->isSameDay(now()->subDays(1)));
+        $this->assertTrue(
+            \Carbon\Carbon::parse($row['last_activity'])
+                ->setTimezone(config('app.timezone'))
+                ->isSameDay(now()->subDays(1))
+            );
     }
 
     public function test_days_parameter_widens_window_and_is_capped(): void
