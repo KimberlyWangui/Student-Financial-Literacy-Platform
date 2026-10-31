@@ -69,14 +69,34 @@ class GoogleAuthController extends Controller
             $googleUser = $userResponse->json();
 
             // Create or update user
-            $user = User::updateOrCreate(
-                ['email' => $googleUser['email']],
-                [
-                    'name' => $googleUser['name'],
-                    'google_id' => $googleUser['id'],
-                    'password' => bcrypt(Str::random(16)),
-                ]
-            );
+            if (empty($googleUser['email']) || empty($googleUser['id'])) {
+                throw new \Exception('Google did not return an email address');
+            }
+            if (($googleUser['verified_email'] ?? false) !== true) {
+                throw new \Exception('Google email is not verified');
+            }
+
+            $user = User::where('email', $googleUser['email'])->first();
+
+            if ($user) {
+                // Existing account: link Google to it, and never touch the password.
+                if (empty($user->google_id)) {
+                    $user->google_id = $googleUser['id'];
+                    $user->save();
+                } elseif ($user->google_id !== $googleUser['id']) {
+                    throw new \Exception('This email is linked to a different Google account');
+                }
+            } else {
+                // First time here: create a student account.
+                $user = new User();
+                $user->name = $googleUser['name'] ?? $googleUser['email'];
+                $user->email = $googleUser['email'];
+                $user->google_id = $googleUser['id'];
+                $user->password = bcrypt(Str::random(32));
+                $user->role = 'student';
+                $user->email_verified_at = now();
+                $user->save();
+            }
 
             $token = $user->createToken($user->name)->plainTextToken;
 

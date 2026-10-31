@@ -13,6 +13,7 @@ import ProfileSettings from './components/ProfileSettings';
 import Simulations from './components/Simulations';
 import Recommendations from './components/Recommendations';
 import Badges from './components/Badges';
+import PrivacyPolicy from './components/PrivacyPolicy';
 import './App.css'
 
 function App() {
@@ -25,6 +26,7 @@ function App() {
           
           {/* Public routes */}
           <Route path="/signin" element={<SignIn />} />
+          <Route path="/privacy-policy" element={<PrivacyPolicy />} />
           <Route path="/signup" element={<SignUp />} />
           <Route path="/verify-otp" element={<OTPVerification />} />
           <Route path="/auth/google/callback" element={<GoogleCallback />} />

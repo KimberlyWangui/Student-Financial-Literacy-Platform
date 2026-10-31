@@ -130,8 +130,6 @@ function SignIn() {
       // Get Google OAuth redirect URL from backend
       const response = await authService.getGoogleAuthUrl();
       
-      console.log('Google auth response:', response);
-      
       // Redirect to Google OAuth page
       if (response.redirect_url) {
         window.location.href = response.redirect_url;
