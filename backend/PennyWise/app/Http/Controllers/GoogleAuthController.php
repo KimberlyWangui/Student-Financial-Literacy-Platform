@@ -7,6 +7,7 @@ use Illuminate\Support\Str;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Cache;
 
 class GoogleAuthController extends Controller
 {
@@ -98,22 +99,12 @@ class GoogleAuthController extends Controller
                 $user->save();
             }
 
-            $token = $user->createToken($user->name)->plainTextToken;
-
-            // Encode user data
-            $authData = base64_encode(json_encode([
-                'token' => $token,
-                'user' => [
-                    'id' => $user->id,
-                    'name' => $user->name,
-                    'email' => $user->email,
-                    'role' => $user->role ?? 'student'
-                ],
-                'role' => $user->role ?? 'student'
-            ]));
+            // One-time code, valid for 60 seconds. The real token is created later, only when it is exchanged.
+            $code = Str::random(48);
+            Cache::put('google_login:' . $code, $user->id, now()->addSeconds(60));
 
             $frontendUrl = env('FRONTEND_URL', 'http://localhost:5173');
-            return redirect($frontendUrl . '/auth/google/success?data=' . $authData);
+            return redirect($frontendUrl . '/auth/google/success?code=' . $code);
 
         } catch (\Exception $e) {
             Log::error('Google OAuth error: ' . $e->getMessage());
@@ -122,5 +113,31 @@ class GoogleAuthController extends Controller
             $error = urlencode('Google authentication failed');
             return redirect($frontendUrl . '/signin?error=' . $error);
         }
+    }
+
+    /**
+     * Swap a one-time code for a login token. The code works once.
+     */
+    public function exchange(Request $request)
+    {
+        $request->validate(['code' => 'required|string|max:100']);
+
+        $userId = Cache::pull('google_login:' . $request->input('code'));
+        $user = $userId ? User::find($userId) : null;
+
+        if (! $user) {
+            return response()->json(['message' => 'This sign-in has expired. Please try again.'], 422);
+        }
+
+        return response()->json([
+            'token' => $user->createToken($user->name)->plainTextToken,
+            'user' => [
+                'id' => $user->id,
+                'name' => $user->name,
+                'email' => $user->email,
+                'role' => $user->role ?? 'student',
+            ],
+            'role' => $user->role ?? 'student',
+        ]);
     }
 }
