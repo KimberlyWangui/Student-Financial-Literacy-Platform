@@ -10,89 +10,45 @@ function GoogleCallback() {
 
   useEffect(() => {
     const handleCallback = () => {
-      // DEBUG LOGS
-      console.log('=== GOOGLE CALLBACK DEBUG ===');
-      console.log('1. Full URL:', window.location.href);
-      console.log('2. Search params:', location.search);
-      
       try {
-        // Get data from URL parameters (sent by Laravel backend)
         const urlParams = new URLSearchParams(location.search);
         const encodedData = urlParams.get('data');
         const errorParam = urlParams.get('error');
-        
-        console.log('3. Encoded data:', encodedData ? 'EXISTS' : 'NULL');
-        console.log('4. Error param:', errorParam);
-        
-        // Check if there's an error from backend
+
         if (errorParam) {
-          console.log('5. Has error parameter');
           setError(decodeURIComponent(errorParam));
           setTimeout(() => {
-            navigate('/signin', {
-              state: { message: 'Google login failed. Please try again.' }
-            });
+            navigate('/signin', { state: { message: 'Google login failed. Please try again.' } });
           }, 2000);
           return;
         }
 
-        // Check if we have data
         if (!encodedData) {
-          console.log('6. No encoded data found!');
           setError('No authentication data received');
-          setTimeout(() => {
-            navigate('/signin');
-          }, 2000);
+          setTimeout(() => navigate('/signin'), 2000);
           return;
         }
 
-        // Decode the base64 data from backend
         const decodedData = JSON.parse(atob(encodedData));
-        
-        console.log('7. Decoded data:', decodedData);
-        console.log('8. Token exists:', !!decodedData.token);
-        console.log('9. User exists:', !!decodedData.user);
-        console.log('10. User role:', decodedData.user?.role || decodedData.role);
-        
-        // Validate that we have required data
+
         if (!decodedData.token || !decodedData.user) {
-          console.log('11. Missing token or user!');
           setError('Invalid authentication data received');
-          setTimeout(() => {
-            navigate('/signin');
-          }, 2000);
+          setTimeout(() => navigate('/signin'), 2000);
           return;
         }
 
-        // Store token and user data in localStorage
         localStorage.setItem('auth_token', decodedData.token);
         localStorage.setItem('user', JSON.stringify(decodedData.user));
-        
-        console.log('12. Token and user stored in localStorage');
-        console.log('13. Stored token:', localStorage.getItem('auth_token'));
-        console.log('14. Stored user:', localStorage.getItem('user'));
-        
+
         const userRole = decodedData.user?.role || decodedData.role || 'student';
-        console.log('15. Final user role:', userRole);
-        console.log('16. About to redirect to dashboard...');
-        
-        // Redirect to appropriate dashboard based on role
+
         setTimeout(() => {
-          console.log('17. Calling redirectToDashboard with role:', userRole);
-          redirectToDashboard(navigate, userRole, {
-            message: 'Welcome back!'
-          });
+          redirectToDashboard(navigate, userRole, { message: 'Welcome back!' });
         }, 1000);
-        
-      } catch (error) {
-        console.error('ERROR in callback:', error);
-        console.error('Error stack:', error.stack);
+      } catch {
         setError('Failed to process authentication data');
-        
         setTimeout(() => {
-          navigate('/signin', {
-            state: { message: 'Google login failed. Please try again.' }
-          });
+          navigate('/signin', { state: { message: 'Google login failed. Please try again.' } });
         }, 2000);
       }
     };
