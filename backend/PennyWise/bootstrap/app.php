@@ -12,10 +12,6 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware) {
-        // Add CORS middleware to API routes
-        $middleware->api(prepend: [
-            \App\Http\Middleware\Cors::class,
-        ]);
         $middleware->alias([
             'admin' => \App\Http\Middleware\IsAdmin::class,
             'student.or.admin' => \App\Http\Middleware\IsStudentOrAdmin::class,
