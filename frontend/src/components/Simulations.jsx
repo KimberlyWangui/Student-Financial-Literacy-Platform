@@ -4,6 +4,7 @@ import DashboardNavbar from '../components/DashboardNavbar';
 import DashboardFooter from '../components/DashboardFooter';
 import api from '../api/axios';
 import './Simulations.css';
+import { wakeSimulator } from '../api/wake';
 import {
   LineChart,
   Line,
@@ -62,6 +63,7 @@ const Simulations = () => {
   const [selectedSimulation, setSelectedSimulation] = useState(null);
 
   useEffect(() => {
+    wakeSimulator();
     fetchInvestmentTypes();
     fetchSimulations();
     fetchStatistics();

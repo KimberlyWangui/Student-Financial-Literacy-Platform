@@ -7,6 +7,8 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Http\Client\RequestException;
 
 class InvestmentSimulationController extends Controller
 {
@@ -28,7 +30,14 @@ class InvestmentSimulationController extends Controller
     private function flask(int $seconds)
     {
         return Http::timeout($seconds)
-            ->withHeaders(['X-Internal-Token' => (string) config('services.simulator.token')]);
+            ->withHeaders(['X-Internal-Token' => (string) config('services.simulator.token')])
+            ->retry(
+                5,
+                app()->environment('testing') ? 0 : 12000,
+                fn ($e) => $e instanceof ConnectionException
+                    || ($e instanceof RequestException && in_array($e->response->status(), [502, 503, 504])),
+                throw: false
+            );
     }
 
     /**

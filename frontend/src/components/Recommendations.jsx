@@ -4,6 +4,7 @@ import DashboardNavbar from '../components/DashboardNavbar';
 import DashboardFooter from '../components/DashboardFooter';
 import api from '../api/axios';
 import './Recommendations.css';
+import { wakeSimulator } from '../api/wake';
 
 const MAX_PDF_MB = 10; // matches the limit on the Laravel side
 
@@ -129,6 +130,7 @@ const Recommendations = () => {
   const [feedbackForm, setFeedbackForm] = useState({ status: 'viewed', feedback: '' });
 
   useEffect(() => {
+    wakeSimulator();
     wakeStatementService();
     loadRecommendations();
     fetchStatistics();
