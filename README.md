@@ -1,10 +1,32 @@
 # PennyWise
-
-![CI](https://github.com/KimberlyWangui/Student-Financial-Literacy-Platform/actions/workflows/ci.yml/badge.svg)
-
 A web app that helps Kenyan university students understand their money. Students upload their M-Pesa statement, PennyWise explains where the money goes in plain language, gives a few clear tips with the reason behind each one, and lets them try an investment simulator to learn how saving and investing work.
 
 PennyWise is an **education tool**. It does not tell anyone what to buy, and the simulator is not financial advice.
+
+---
+
+## Live demo
+
+**https://student-financial-literacy-platform.vercel.app**
+
+> PennyWise runs on free hosting. If nobody has used it for a while, the first upload or simulation can take up to a minute while the services wake up. After that it is fast.
+
+[![CI](https://github.com/KimberlyWangui/Student-Financial-Literacy-Platform/actions/workflows/ci.yml/badge.svg)](https://github.com/KimberlyWangui/Student-Financial-Literacy-Platform/actions/workflows/ci.yml)
+
+## How it is built
+
+| Part | Technology | Hosted on |
+|---|---|---|
+| Website | React 19, Vite 7 | Vercel |
+| API | Laravel 12, Sanctum | Render (Docker) |
+| Statement reader | Flask, pdfplumber | Render |
+| Investment simulator | Flask | Render |
+| Database | MySQL | Aiven |
+| Email | Brevo (SMTP) | Brevo |
+
+Every pull request is checked automatically with frontend lint, build and tests (Vitest), the Flask tests (pytest) and the Laravel tests.
+
+How it is deployed, which settings each service needs, and how to fix common problems are in [DEPLOYMENT.md](DEPLOYMENT.md).
 
 ---
 
