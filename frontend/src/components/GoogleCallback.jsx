@@ -1,59 +1,58 @@
-import { useEffect, useState } from 'react';
+import { useEffect,useRef, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { redirectToDashboard } from '../utils/redirectHelper';
 import './GoogleCallback.css';
+import api from '../api/axios';
 
 function GoogleCallback() {
   const navigate = useNavigate();
   const location = useLocation();
   const [error, setError] = useState('');
+  const handled = useRef(false); // the code works once, so only run the exchange once
 
   useEffect(() => {
-    const handleCallback = () => {
+    if (handled.current) return;
+    handled.current = true;
+
+    const fail = (text) => {
+      setError(text);
+      setTimeout(() => {
+        navigate('/signin', { state: { message: 'Google login failed. Please try again.' } });
+      }, 2000);
+    };
+
+    const run = async () => {
+      const params = new URLSearchParams(location.search);
+      const errorParam = params.get('error');
+      const code = params.get('code');
+
+      // Take the code out of the address bar straight away.
+      window.history.replaceState({}, '', '/auth/google/success');
+
+      if (errorParam) {
+        fail(decodeURIComponent(errorParam));
+        return;
+      }
+      if (!code) {
+        fail('No authentication data received');
+        return;
+      }
+
       try {
-        const urlParams = new URLSearchParams(location.search);
-        const encodedData = urlParams.get('data');
-        const errorParam = urlParams.get('error');
+        const { data } = await api.post('/auth/google/exchange', { code });
+        if (!data.token || !data.user) throw new Error('Invalid data');
 
-        if (errorParam) {
-          setError(decodeURIComponent(errorParam));
-          setTimeout(() => {
-            navigate('/signin', { state: { message: 'Google login failed. Please try again.' } });
-          }, 2000);
-          return;
-        }
+        localStorage.setItem('auth_token', data.token);
+        localStorage.setItem('user', JSON.stringify(data.user));
 
-        if (!encodedData) {
-          setError('No authentication data received');
-          setTimeout(() => navigate('/signin'), 2000);
-          return;
-        }
-
-        const decodedData = JSON.parse(atob(encodedData));
-
-        if (!decodedData.token || !decodedData.user) {
-          setError('Invalid authentication data received');
-          setTimeout(() => navigate('/signin'), 2000);
-          return;
-        }
-
-        localStorage.setItem('auth_token', decodedData.token);
-        localStorage.setItem('user', JSON.stringify(decodedData.user));
-
-        const userRole = decodedData.user?.role || decodedData.role || 'student';
-
-        setTimeout(() => {
-          redirectToDashboard(navigate, userRole, { message: 'Welcome back!' });
-        }, 1000);
+        const userRole = data.user.role || data.role || 'student';
+        redirectToDashboard(navigate, userRole, { message: 'Welcome back!' });
       } catch {
-        setError('Failed to process authentication data');
-        setTimeout(() => {
-          navigate('/signin', { state: { message: 'Google login failed. Please try again.' } });
-        }, 2000);
+        fail('This sign-in has expired. Please try again.');
       }
     };
 
-    handleCallback();
+    run();
   }, [location, navigate]);
 
   return (

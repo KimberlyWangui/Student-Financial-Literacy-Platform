@@ -28,6 +28,7 @@ Route::post('/resend-otp',         [AuthController::class,         'resendOtp'])
 // Google OAuth routes
 Route::get('/auth/google',         [GoogleAuthController::class,   'redirectToGoogle']);
 Route::get('/auth/google/callback',[GoogleAuthController::class,   'handleGoogleCallback']);
+Route::post('/auth/google/exchange', [GoogleAuthController::class, 'exchange'])->middleware('throttle:10,1');
 
 // ============================================
 // PROTECTED ROUTES (Authentication Required)
