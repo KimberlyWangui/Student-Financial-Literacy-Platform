@@ -1,0 +1,81 @@
+{
+  "metadata": {
+    "currency": "KES",
+    "last_reviewed": "2026-10-13",
+    "disclaimer": "This is a simulation built on stated assumptions. It is not a prediction, a promise or financial advice. Real returns change over time and you can lose money, especially with shares. Check current rates and tax rules before you invest."
+  },
+  "assets": {
+    "mmf": {
+      "name": "Money Market Fund",
+      "description": "Low-risk savings that pool money into short-term loans to government and banks. Ideal for emergency funds and short-term goals.",
+      "recommended_duration": "3-12 months",
+      "annual_return": 10.0,
+      "volatility": 1.7,
+      "tax_rate": 0.15,
+      "risk_level": "low",
+      "range_low": 4.22,
+      "range_high": 12.9,
+      "range_label": "across the 27 funds in our list",
+      "as_of": "your fund list 2020",
+      "source": "Average gross yield of 27 Kenyan money market funds (project dataset). Volatility is the spread between funds, not a measured month-to-month swing.",
+      "needs_review": true,
+      "notes": [
+        "Fund yields move with Treasury rates. Treasury bill rates were lower in 2026 than the dataset suggests, so check the fund's current yield."
+      ]
+    },
+    "tbill": {
+      "name": "Treasury Bill",
+      "description": "Short-term government securities (91, 182 or 364 days). The government pays you back at maturity, so the return is known when you buy.",
+      "recommended_duration": "3-12 months",
+      "annual_return": 8.4,
+      "volatility": 0.8,
+      "tax_rate": 0.15,
+      "risk_level": "very_low",
+      "range_low": 8.2,
+      "range_high": 8.6,
+      "range_label": "across 91, 182 and 364-day auctions, 14-28 May 2026",
+      "as_of": "28 May 2026",
+      "source": "Central Bank of Kenya weekly bulletin, 29 May 2026: average auction rates 91-day 8.388%, 182-day 8.250%, 364-day 8.627%.",
+      "needs_review": false,
+      "notes": [
+        "Rates change every week. Check the latest auction results at the Central Bank of Kenya."
+      ]
+    },
+    "bond": {
+      "name": "Government Bond",
+      "description": "Longer-term government securities that pay interest twice a year. Held to maturity the return is known. Selling early can lose money if rates have risen.",
+      "recommended_duration": "1-5 years",
+      "annual_return": 13.1,
+      "volatility": 6.0,
+      "tax_rate": 0.1,
+      "risk_level": "low",
+      "range_low": 12.5,
+      "range_high": 13.8,
+      "range_label": "across Treasury bond auctions, April-May 2026",
+      "as_of": "late 2025 yield data, auctions to May 2026",
+      "source": "10-year yield of 13.13% in the project dataset (November 2025); Central Bank bond auctions in April-May 2026 ranged 12.46%-13.76%. Volatility is an estimate of price swings if sold early (about 6 x a typical 1 percentage point yearly yield change), not a measured figure.",
+      "needs_review": true,
+      "notes": [
+        "The tax rate used is the 10% rate for bonds of 10 years or more. Shorter bonds are usually taxed at 15%. Infrastructure bonds have their own rules."
+      ]
+    },
+    "stock": {
+      "name": "Stock Market",
+      "description": "Part-ownership of listed companies. Higher potential growth, but prices can fall a lot and stay low for years.",
+      "recommended_duration": "2+ years",
+      "annual_return": 1.2,
+      "volatility": 14.7,
+      "tax_rate": 0.0,
+      "risk_level": "high",
+      "range_low": null,
+      "range_high": null,
+      "range_label": "not shown: stock outcomes vary too widely",
+      "as_of": "NSE data 2013-01 to 2020-12",
+      "source": "NSE daily prices 2013-01 to 2020-12, month-end, equal-weighted basket of about 54 listed shares (indices and thinly traded months removed). Price change only plus an ASSUMED 5.0% a year for dividends (not in the data, not verified). A single share is far riskier: its typical volatility is 37%.",
+      "needs_review": true,
+      "notes": [
+        "Dividend tax and tax on selling gains are not modelled. Share prices can fall and stay low for a long time."
+      ]
+    }
+  }
+}
